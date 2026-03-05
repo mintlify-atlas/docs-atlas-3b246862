@@ -115,7 +115,8 @@
             "pages": [
               "api/lazy",
               "api/suspense",
-              "api/slots"
+              "api/slots",
+              "api/utilities"
             ]
           }
         ]

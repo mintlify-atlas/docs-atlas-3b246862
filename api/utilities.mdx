@@ -1,0 +1,152 @@
+---
+title: Utility Functions
+description: Helper functions for working with objects and equality checks
+icon: wrench
+---
+
+# Utility Functions
+
+GlyphUI exports utility functions that are used internally for virtual DOM diffing and can also be used in your application code for object comparisons.
+
+## isShallowEqual()
+
+Performs a shallow equality check between two objects. Returns `true` if both objects have the same keys and values, where values are compared with strict equality (`===`).
+
+```javascript
+function isShallowEqual(obj1, obj2)
+```
+
+<ParamField path="obj1" type="object" required>
+  First object to compare
+</ParamField>
+
+<ParamField path="obj2" type="object" required>
+  Second object to compare
+</ParamField>
+
+<ResponseField name="return" type="boolean">
+  `true` if objects are shallowly equal, `false` otherwise
+</ResponseField>
+
+### Behavior
+
+- Returns `true` if both references are identical (`obj1 === obj2`)
+- Returns `false` if either object is `null` or `undefined`
+- Compares the number of keys in both objects
+- Compares each key's value using strict equality (`===`)
+- Special handling for `on` property (event listeners) - only checks existence
+- Skips the `key` property in comparison
+
+### Usage
+
+```javascript
+import { isShallowEqual } from 'glyphui';
+
+const obj1 = { a: 1, b: 2 };
+const obj2 = { a: 1, b: 2 };
+const obj3 = { a: 1, b: 3 };
+
+console.log(isShallowEqual(obj1, obj2)); // true
+console.log(isShallowEqual(obj1, obj3)); // false
+
+// Nested objects are compared by reference
+const obj4 = { a: 1, nested: { x: 1 } };
+const obj5 = { a: 1, nested: { x: 1 } };
+console.log(isShallowEqual(obj4, obj5)); // false (different nested object references)
+```
+
+<Note>
+This function is used internally by GlyphUI's virtual DOM diffing algorithm to determine if component props have changed.
+</Note>
+
+## isDeepEqual()
+
+Performs a deep equality check between two values. Recursively compares nested objects and arrays.
+
+```javascript
+function isDeepEqual(obj1, obj2)
+```
+
+<ParamField path="obj1" type="any" required>
+  First value to compare
+</ParamField>
+
+<ParamField path="obj2" type="any" required>
+  Second value to compare
+</ParamField>
+
+<ResponseField name="return" type="boolean">
+  `true` if values are deeply equal, `false` otherwise
+</ResponseField>
+
+### Behavior
+
+- Handles primitives (strings, numbers, booleans)
+- Returns `true` if both references are identical
+- Returns `false` if either value is `null` or `undefined`
+- Returns `false` if types don't match
+- Recursively compares arrays element by element
+- Recursively compares object properties
+- Skips function comparisons (always returns `true` for function properties)
+
+### Usage
+
+```javascript
+import { isDeepEqual } from 'glyphui';
+
+// Primitives
+console.log(isDeepEqual(1, 1)); // true
+console.log(isDeepEqual('hello', 'hello')); // true
+
+// Arrays
+console.log(isDeepEqual([1, 2, 3], [1, 2, 3])); // true
+console.log(isDeepEqual([1, 2], [1, 2, 3])); // false
+
+// Nested objects
+const obj1 = { a: 1, nested: { x: 1, y: 2 } };
+const obj2 = { a: 1, nested: { x: 1, y: 2 } };
+const obj3 = { a: 1, nested: { x: 1, y: 3 } };
+
+console.log(isDeepEqual(obj1, obj2)); // true
+console.log(isDeepEqual(obj1, obj3)); // false
+
+// Mixed structures
+const complex1 = { a: [1, 2], b: { c: 3 } };
+const complex2 = { a: [1, 2], b: { c: 3 } };
+console.log(isDeepEqual(complex1, complex2)); // true
+```
+
+<Note>
+This function is primarily useful for testing. It's not used in the core virtual DOM diffing algorithm since shallow comparison is sufficient for most cases.
+</Note>
+
+## When to Use
+
+<CardGroup cols={2}>
+  <Card title="Use isShallowEqual" icon="layer-group">
+    - Comparing component props
+    - Checking if re-render is needed
+    - Performance-critical paths
+    - Flat object structures
+  </Card>
+  
+  <Card title="Use isDeepEqual" icon="cubes-stacked">
+    - Testing deeply nested structures
+    - Verifying complex state changes
+    - Non-performance-critical code
+    - Debugging and assertions
+  </Card>
+</CardGroup>
+
+## Performance Considerations
+
+- **Shallow comparison** is O(n) where n is the number of keys
+- **Deep comparison** can be O(n×m) for nested structures
+- For performance-critical code, prefer shallow comparison
+- Deep comparison should be used sparingly in production code
+
+## Related
+
+- [Virtual DOM](/concepts/virtual-dom) - Learn how these utilities are used in diffing
+- [Rendering](/concepts/rendering) - Understand the reconciliation process
+- [Performance](/advanced/performance) - Optimization techniques
