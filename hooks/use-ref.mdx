@@ -1,0 +1,345 @@
+---
+title: useRef
+description: Create persistent mutable references with the useRef hook
+---
+
+## Overview
+
+The `useRef` hook returns a mutable ref object whose `.current` property is initialized to the passed argument. The returned object persists for the full lifetime of the component.
+
+`useRef` is useful for:
+- Accessing DOM elements directly
+- Storing mutable values that don't trigger re-renders when changed
+- Keeping track of previous values
+- Storing interval/timeout IDs
+
+## Signature
+
+```javascript
+const refContainer = useRef(initialValue);
+```
+
+## Parameters
+
+<ParamField path="initialValue" type="any">
+  The initial value for the ref's `.current` property. This can be any value. The initial value is ignored after the first render.
+</ParamField>
+
+## Returns
+
+`useRef` returns an object with a single property:
+
+```javascript
+{
+  current: initialValue
+}
+```
+
+You can mutate the `current` property freely. Unlike state, mutating `current` doesn't trigger a re-render.
+
+## Usage
+
+### Accessing DOM Elements
+
+The most common use of `useRef` is to access DOM elements directly:
+
+```javascript
+import { h, useRef, useEffect } from './glyphui.js';
+
+const AutoFocusInput = () => {
+  const inputRef = useRef(null);
+  
+  useEffect(() => {
+    // inputRef.current points to the mounted DOM element
+    if (inputRef.current) {
+      inputRef.current.focus();
+    }
+  }, []);
+  
+  return h('input', {
+    type: 'text',
+    ref: (el) => (inputRef.current = el)
+  }, []);
+};
+```
+
+In GlyphUI, you assign the ref inside the `ref` prop using a callback function that receives the DOM element.
+
+### Storing Mutable Values
+
+Unlike state, changing a ref's `current` property doesn't trigger a re-render. This makes refs perfect for storing values that need to persist but don't affect the visual output:
+
+```javascript
+const Timer = () => {
+  const [count, setCount] = useState(0);
+  const intervalRef = useRef(null);
+  
+  const startTimer = () => {
+    if (intervalRef.current !== null) return; // Already running
+    
+    intervalRef.current = setInterval(() => {
+      setCount(c => c + 1);
+    }, 1000);
+  };
+  
+  const stopTimer = () => {
+    if (intervalRef.current !== null) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
+  };
+  
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+      }
+    };
+  }, []);
+  
+  return h('div', {}, [
+    h('p', {}, [`Count: ${count}`]),
+    h('button', { onclick: startTimer }, ['Start']),
+    h('button', { onclick: stopTimer }, ['Stop'])
+  ]);
+};
+```
+
+### Tracking Previous Values
+
+You can use a ref to keep track of a previous value:
+
+```javascript
+const usePrevious = (value) => {
+  const ref = useRef();
+  
+  useEffect(() => {
+    ref.current = value; // Update ref after render
+  });
+  
+  return ref.current; // Return previous value (from last render)
+};
+
+const Counter = () => {
+  const [count, setCount] = useState(0);
+  const prevCount = usePrevious(count);
+  
+  return h('div', {}, [
+    h('p', {}, [`Current: ${count}`]),
+    h('p', {}, [`Previous: ${prevCount ?? 'none'}`]),
+    h('button', { onclick: () => setCount(count + 1) }, ['Increment'])
+  ]);
+};
+```
+
+### Avoiding Stale Closures
+
+Refs can help you avoid stale closures in effects:
+
+```javascript
+const Component = ({ onUpdate }) => {
+  const [count, setCount] = useState(0);
+  const onUpdateRef = useRef(onUpdate);
+  
+  // Keep ref updated with latest callback
+  useEffect(() => {
+    onUpdateRef.current = onUpdate;
+  });
+  
+  useEffect(() => {
+    const timer = setInterval(() => {
+      // Always calls the latest onUpdate function
+      onUpdateRef.current(count);
+    }, 1000);
+    
+    return () => clearInterval(timer);
+  }, [count]); // Don't need to include onUpdate in deps
+  
+  return h('div', {}, [`Count: ${count}`]);
+};
+```
+
+## Practical Examples
+
+### Input Focus Management
+
+```javascript
+const LoginForm = () => {
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const nameInputRef = useRef(null);
+  
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (!name) {
+      // Focus name input if empty
+      nameInputRef.current?.focus();
+      return;
+    }
+    // Submit form...
+  };
+  
+  return h('form', { onsubmit: handleSubmit }, [
+    h('input', {
+      type: 'text',
+      value: name,
+      oninput: (e) => setName(e.target.value),
+      ref: (el) => (nameInputRef.current = el)
+    }, []),
+    h('input', {
+      type: 'email',
+      value: email,
+      oninput: (e) => setEmail(e.target.value)
+    }, []),
+    h('button', { type: 'submit' }, ['Submit'])
+  ]);
+};
+```
+
+### Measuring DOM Elements
+
+```javascript
+const MeasuredDiv = () => {
+  const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
+  const divRef = useRef(null);
+  
+  useEffect(() => {
+    if (divRef.current) {
+      const { width, height } = divRef.current.getBoundingClientRect();
+      setDimensions({ width, height });
+    }
+  }, []);
+  
+  return h('div', {}, [
+    h('div', {
+      ref: (el) => (divRef.current = el),
+      style: 'padding: 20px; background: lightblue;'
+    }, ['Content here']),
+    h('p', {}, [`Width: ${dimensions.width}px, Height: ${dimensions.height}px`])
+  ]);
+};
+```
+
+### Caching Expensive Objects
+
+```javascript
+const VideoPlayer = ({ videoId }) => {
+  const playerRef = useRef(null);
+  
+  useEffect(() => {
+    // Initialize player only once
+    if (!playerRef.current) {
+      playerRef.current = new VideoPlayerInstance();
+    }
+    
+    // Update video without recreating player
+    playerRef.current.loadVideo(videoId);
+    
+    return () => {
+      // Cleanup on unmount
+      playerRef.current?.destroy();
+    };
+  }, [videoId]);
+  
+  return h('div', { id: 'video-container' }, []);
+};
+```
+
+## How It Works
+
+The `useRef` hook is implemented in `packages/runtime/src/hooks.js:278-299`. Here's what happens:
+
+1. **First Render**: When `useRef` is called for the first time, it creates a new object `{ current: initialValue }` and stores it in the component's hooks array.
+
+2. **Subsequent Renders**: On re-renders, `useRef` returns the same object from the hooks array. The object identity remains stable across renders.
+
+3. **No Re-renders**: Mutating the `.current` property doesn't trigger any re-renders or effect re-runs. The ref is truly mutable.
+
+4. **Persistence**: The ref object persists for the entire lifetime of the component, from mount to unmount.
+
+## Ref vs State
+
+Understanding when to use refs versus state:
+
+| Feature | useState | useRef |
+|---------|----------|--------|
+| Triggers re-render on change | ✅ Yes | ❌ No |
+| Mutable | ❌ No (immutable updates) | ✅ Yes (mutate `.current`) |
+| Persists across renders | ✅ Yes | ✅ Yes |
+| Suitable for visual data | ✅ Yes | ❌ No |
+| Suitable for non-visual data | ⚠️ Causes re-render | ✅ Yes |
+| Initial value | Used on first render | Used on first render |
+
+```javascript
+const Component = () => {
+  // ✅ Use state for values that affect rendering
+  const [count, setCount] = useState(0);
+  
+  // ✅ Use ref for values that don't affect rendering
+  const renderCount = useRef(0);
+  renderCount.current += 1;
+  
+  return h('div', {}, [
+    h('p', {}, [`Count: ${count}`]),
+    h('p', {}, [`Render count: ${renderCount.current}`]),
+    h('button', { onclick: () => setCount(count + 1) }, ['Increment'])
+  ]);
+};
+```
+
+## Common Pitfalls
+
+### Don't Read or Write Refs During Rendering
+
+```javascript
+// ❌ Bad: Reading ref during render
+const Component = () => {
+  const ref = useRef(0);
+  ref.current += 1; // Don't do this!
+  return h('div', {}, [`Render: ${ref.current}`]);
+};
+
+// ✅ Good: Update ref in effect or event handler
+const Component = () => {
+  const ref = useRef(0);
+  
+  useEffect(() => {
+    ref.current += 1; // OK in effect
+  });
+  
+  const handleClick = () => {
+    ref.current += 1; // OK in event handler
+  };
+  
+  return h('button', { onclick: handleClick }, ['Click']);
+};
+```
+
+### Refs Don't Trigger Re-renders
+
+Changing a ref won't cause your component to update:
+
+```javascript
+const Component = () => {
+  const countRef = useRef(0);
+  
+  const increment = () => {
+    countRef.current += 1;
+    // Component won't re-render - the displayed value won't change!
+  };
+  
+  return h('div', {}, [
+    h('p', {}, [`Count: ${countRef.current}`]),
+    h('button', { onclick: increment }, ['Increment'])
+  ]);
+};
+```
+
+If you need the component to re-render when the value changes, use `useState` instead.
+
+## Related Hooks
+
+- [useEffect](/hooks/use-effect) - Often used with useRef for DOM operations
+- [useState](/hooks/use-state) - Use when you need re-renders on value changes
+- [useCallback](/hooks/use-callback) - Can be stored in refs to avoid stale closures

@@ -1,0 +1,191 @@
+---
+title: Local Component State
+description: Manage state within individual components using setState and useState
+---
+
+Local state is perfect for component-specific data that doesn't need to be shared across your application. GlyphUI provides state management in both class and functional components.
+
+## Class Components with setState
+
+Class components use `setState()` to update their internal state:
+
+```javascript
+import { Component, h } from 'glyphui';
+
+class Counter extends Component {
+  constructor(props) {
+    super(props, {
+      initialState: {
+        count: props.initialCount || 0
+      }
+    });
+  }
+  
+  increment() {
+    this.setState({ count: this.state.count + 1 });
+  }
+  
+  decrement() {
+    this.setState({ count: this.state.count - 1 });
+  }
+  
+  reset() {
+    this.setState({ count: this.props.initialCount || 0 });
+  }
+  
+  render(props, state) {
+    return h('div', { class: 'counter' }, [
+      h('h2', {}, [props.title || 'Counter']),
+      h('div', { class: 'counter-value' }, [state.count.toString()]),
+      h('div', { class: 'counter-actions' }, [
+        h('button', { on: { click: () => this.increment() } }, ['Increment']),
+        h('button', { on: { click: () => this.decrement() } }, ['Decrement']),
+        h('button', { on: { click: () => this.reset() } }, ['Reset'])
+      ])
+    ]);
+  }
+}
+```
+
+### Key Points
+
+- Pass `initialState` object in the constructor options
+- Call `this.setState()` with partial state updates
+- Access state via `this.state` in methods
+- State is automatically merged with existing state
+- Component re-renders when state changes
+
+## Functional Components with useState
+
+Functional components can use the `useState` hook for simpler state management:
+
+```javascript
+import { useState, h } from 'glyphui';
+
+function Counter(props) {
+  const [count, setCount] = useState(props.initialCount || 0);
+  
+  return h('div', { class: 'counter' }, [
+    h('h2', {}, [props.title || 'Counter']),
+    h('div', { class: 'counter-value' }, [count.toString()]),
+    h('div', { class: 'counter-actions' }, [
+      h('button', { on: { click: () => setCount(count + 1) } }, ['Increment']),
+      h('button', { on: { click: () => setCount(count - 1) } }, ['Decrement']),
+      h('button', { on: { click: () => setCount(props.initialCount || 0) } }, ['Reset'])
+    ])
+  ]);
+}
+```
+
+<Note>
+  `useState` returns an array with the current value and a setter function. This pattern is inspired by React hooks.
+</Note>
+
+## Managing Multiple State Values
+
+You can combine multiple state values in a single object:
+
+```javascript
+class TodoInput extends Component {
+  constructor(props) {
+    super(props, {
+      initialState: {
+        text: '',
+        priority: 'normal',
+        dueDate: null
+      }
+    });
+  }
+  
+  updateText(e) {
+    this.setState({ text: e.target.value });
+  }
+  
+  updatePriority(e) {
+    this.setState({ priority: e.target.value });
+  }
+  
+  render(props, state) {
+    return h('div', { class: 'todo-input' }, [
+      h('input', {
+        type: 'text',
+        value: state.text,
+        on: { input: (e) => this.updateText(e) }
+      }),
+      h('select', {
+        value: state.priority,
+        on: { change: (e) => this.updatePriority(e) }
+      }, [
+        h('option', { value: 'low' }, ['Low']),
+        h('option', { value: 'normal' }, ['Normal']),
+        h('option', { value: 'high' }, ['High'])
+      ])
+    ]);
+  }
+}
+```
+
+## When to Use Local State
+
+Local state is ideal for:
+
+- **Form inputs** - Text fields, checkboxes, and other form controls
+- **UI toggles** - Dropdowns, modals, tooltips, and visibility states
+- **Component-specific data** - Data that only affects a single component
+- **Temporary values** - Draft text, intermediate calculations
+
+<Note>
+  If multiple components need access to the same data, consider using [global state](/state/global-store) or the [createApp pattern](/state/create-app) instead.
+</Note>
+
+## Lifecycle with State
+
+You can react to state changes using lifecycle methods:
+
+```javascript
+class Timer extends Component {
+  constructor(props) {
+    super(props, {
+      initialState: {
+        seconds: 0,
+        isRunning: false
+      }
+    });
+  }
+  
+  mounted() {
+    // Component is mounted - set up interval
+    this.interval = setInterval(() => {
+      if (this.state.isRunning) {
+        this.setState({ seconds: this.state.seconds + 1 });
+      }
+    }, 1000);
+  }
+  
+  beforeUnmount() {
+    // Clean up interval before unmounting
+    if (this.interval) {
+      clearInterval(this.interval);
+    }
+  }
+  
+  toggleTimer() {
+    this.setState({ isRunning: !this.state.isRunning });
+  }
+  
+  render(props, state) {
+    return h('div', {}, [
+      h('div', {}, [`Time: ${state.seconds}s`]),
+      h('button', { 
+        on: { click: () => this.toggleTimer() }
+      }, [state.isRunning ? 'Pause' : 'Start'])
+    ]);
+  }
+}
+```
+
+## Next Steps
+
+- Learn about the [createApp pattern](/state/create-app) for application-level state
+- Explore [global stores](/state/global-store) for shared state across components
+- See how to [connect components](/state/connect) to a global store

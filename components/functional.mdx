@@ -1,0 +1,233 @@
+---
+title: "Functional Components"
+description: "Learn how to create functional components in GlyphUI"
+---
+
+Functional components are the simplest way to create components in GlyphUI. They are JavaScript functions that take `props` as an argument and return a virtual DOM tree.
+
+## Basic Syntax
+
+A functional component is just a function that returns a virtual DOM node created with the `h()` function:
+
+```javascript
+import { h } from "glyphui";
+
+const Greeting = (props) => {
+  return h("h1", {}, [`Hello, ${props.name}!`]);
+};
+```
+
+## Using Functional Components
+
+To use a functional component, wrap it with `createComponent()`:
+
+```javascript
+import { createComponent } from "glyphui";
+
+const app = createComponent(Greeting, { name: "Alice" });
+```
+
+## Props
+
+Props are passed as the first argument to functional components. They contain data and functions from the parent component.
+
+```javascript
+const UserCard = (props) => {
+  return h("div", { class: "card" }, [
+    h("h2", {}, [props.name]),
+    h("p", {}, [props.email]),
+    h("button", { 
+      on: { click: props.onEdit } 
+    }, ["Edit"])
+  ]);
+};
+```
+
+### Children Prop
+
+Children passed to a component are available under `props.children`:
+
+```javascript
+const Container = (props) => {
+  return h("div", { class: "container" }, [
+    h("header", {}, ["Header"]),
+    ...props.children,  // Spread children into the DOM
+    h("footer", {}, ["Footer"])
+  ]);
+};
+```
+
+## State Management with Hooks
+
+Functional components can manage state using the `useState` hook:
+
+```javascript
+import { h, useState } from "glyphui";
+
+const Counter = (props) => {
+  const [count, setCount] = useState(0);
+  
+  return h("div", {}, [
+    h("h2", {}, ["useState Demo"]),
+    h("p", {}, [`Current count: ${count}`]),
+    h("button", {
+      onclick: () => setCount(count + 1)
+    }, ["Increment"]),
+    h("button", {
+      onclick: () => setCount(count - 1)
+    }, ["Decrement"]),
+    h("button", {
+      onclick: () => setCount(0)
+    }, ["Reset"])
+  ]);
+};
+```
+
+<Note>
+The `useState` hook returns an array with the current state value and a setter function.
+</Note>
+
+## Side Effects with useEffect
+
+Use `useEffect` to handle side effects like timers, subscriptions, or data fetching:
+
+```javascript
+import { h, useState, useEffect } from "glyphui";
+
+const Timer = (props) => {
+  const [time, setTime] = useState(0);
+  const [isRunning, setIsRunning] = useState(false);
+  
+  useEffect(() => {
+    let intervalId = null;
+    
+    if (isRunning) {
+      intervalId = setInterval(() => {
+        setTime((prevTime) => prevTime + 1);
+      }, 1000);
+    }
+    
+    // Cleanup function runs when effect is cleaned up
+    return () => {
+      if (intervalId) {
+        clearInterval(intervalId);
+      }
+    };
+  }, [isRunning]); // Re-run when isRunning changes
+  
+  return h("div", {}, [
+    h("div", { class: "timer" }, [time.toString()]),
+    h("button", {
+      onclick: () => setIsRunning(!isRunning)
+    }, [isRunning ? "Pause" : "Start"])
+  ]);
+};
+```
+
+<Warning>
+The second argument to `useEffect` is a dependency array. The effect only re-runs when these dependencies change.
+</Warning>
+
+## Other Hooks
+
+### useRef
+
+Store mutable values that persist across renders without causing re-renders:
+
+```javascript
+import { h, useRef, useEffect } from "glyphui";
+
+const AutoFocusInput = (props) => {
+  const inputRef = useRef(null);
+  
+  useEffect(() => {
+    if (inputRef.current) {
+      inputRef.current.focus();
+    }
+  }, []);
+  
+  return h("input", {
+    type: "text",
+    ref: (el) => (inputRef.current = el)
+  }, []);
+};
+```
+
+### useMemo
+
+Memoize expensive calculations:
+
+```javascript
+import { h, useState, useMemo } from "glyphui";
+
+const FibonacciCalculator = (props) => {
+  const [number, setNumber] = useState(20);
+  
+  const fibonacci = useMemo(() => {
+    console.log(`Calculating Fibonacci(${number})...`);
+    const fib = (n) => {
+      if (n <= 1) return n;
+      if (n === 2) return 1;
+      return fib(n - 1) + fib(n - 2);
+    };
+    return fib(number);
+  }, [number]); // Only recalculate when number changes
+  
+  return h("div", {}, [
+    h("p", {}, [`Fibonacci(${number}) = ${fibonacci}`])
+  ]);
+};
+```
+
+### useCallback
+
+Memoize callback functions:
+
+```javascript
+import { h, useState, useCallback } from "glyphui";
+
+const Form = (props) => {
+  const [name, setName] = useState("");
+  
+  const handleSubmit = useCallback((e) => {
+    e.preventDefault();
+    console.log("Submitting:", name);
+  }, [name]);
+  
+  return h("form", { onsubmit: handleSubmit }, [
+    h("input", {
+      value: name,
+      oninput: (e) => setName(e.target.value)
+    }, [])
+  ]);
+};
+```
+
+## When to Use Functional Components
+
+<CardGroup cols={2}>
+  <Card title="Best For" icon="check">
+    - Simple, presentational UI
+    - Components that use hooks
+    - New component development
+    - Functional programming style
+  </Card>
+  
+  <Card title="Consider Class Components If" icon="lightbulb">
+    - You need lifecycle methods
+    - Complex state management
+    - You prefer OOP style
+    - Legacy codebase consistency
+  </Card>
+</CardGroup>
+
+## Related
+
+<CardGroup cols={2}>
+  <Card title="Class Components" icon="code" href="/components/class-based">
+    Learn about class-based components
+  </Card>
+  <Card title="Component Composition" icon="layer-group" href="/components/composition">
+    Compose components together
+  </Card>
+</CardGroup>

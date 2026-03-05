@@ -1,0 +1,452 @@
+---
+title: Components
+description: Build reusable UI components with GlyphUI using class-based or functional approaches
+---
+
+## What are Components?
+
+Components are reusable, self-contained pieces of UI that encapsulate their own structure, logic, and state. In GlyphUI, components are the building blocks of your application.
+
+Components can:
+- Manage their own internal state
+- Accept props from parent components
+- Emit events to communicate with parents
+- Implement lifecycle methods to react to changes
+- Be composed together to build complex UIs
+
+## Component Types
+
+GlyphUI supports two types of components:
+
+1. **Class Components** - Full-featured components with state and lifecycle methods
+2. **Functional Components** - Lightweight, function-based components that use hooks
+
+## Class Components
+
+Class components extend the `Component` base class from `packages/runtime/src/component.js`. They provide full access to state management, lifecycle methods, and event handling.
+
+### Basic Structure
+
+```javascript
+import { Component, h } from 'glyphui';
+
+class MyComponent extends Component {
+  constructor(props) {
+    super(props, {
+      initialState: { /* initial state */ }
+    });
+  }
+  
+  render(props, state, emit) {
+    return h('div', {}, ['Hello from component']);
+  }
+}
+```
+
+### Counter Example
+
+From `examples/hello-world/hello.js:3-42`, here's a complete class component:
+
+```javascript
+import { h, Component } from 'glyphui';
+
+class HelloWorldApp extends Component {
+  constructor() {
+    super({}, {
+      initialState: { greeting: 'Hello, World!' }
+    });
+    
+    this.greetings = [
+      'Hello, World!',
+      'Hola, Mundo!',
+      'Bonjour, Monde!',
+      'Ciao, Mondo!',
+      'こんにちは世界！',
+      '你好，世界！',
+      'Привет, мир!',
+    ];
+  }
+  
+  changeGreeting() {
+    const currentIndex = this.greetings.indexOf(this.state.greeting);
+    const nextIndex = (currentIndex + 1) % this.greetings.length;
+    this.setState({ greeting: this.greetings[nextIndex] });
+  }
+  
+  render(props, state) {
+    return h('div', {}, [
+      h('div', { class: 'greeting' }, [state.greeting]),
+      h('button', {
+        class: 'change-btn',
+        on: { click: () => this.changeGreeting() }
+      }, ['Next →'])
+    ]);
+  }
+}
+
+// Mount the component
+const app = new HelloWorldApp();
+app.mount(document.querySelector('main'));
+```
+
+### Component Constructor
+
+The constructor accepts props and an options object:
+
+```javascript
+constructor(props = {}, { initialState = {} } = {})
+```
+
+- **props** - Properties passed from parent component
+- **initialState** - Initial state object for the component
+
+<Note>
+Always call `super(props, { initialState })` before accessing `this` in the constructor.
+</Note>
+
+### State Management
+
+Components have built-in state management through the `setState()` method:
+
+```javascript
+// Update state with an object
+this.setState({ count: 5 });
+
+// Update state with a function (receives current state)
+this.setState(state => ({ count: state.count + 1 }));
+```
+
+Calling `setState()` triggers a re-render of the component. The state object is shallow-merged with the existing state.
+
+### The render() Method
+
+Every component must implement a `render()` method that returns virtual DOM:
+
+```javascript
+render(props, state, emit) {
+  return h('div', {}, [
+    h('p', {}, [`Count: ${state.count}`]),
+    h('button', { on: { click: () => this.increment() } }, ['Increment'])
+  ]);
+}
+```
+
+**Parameters:**
+- **props** - Current props object
+- **state** - Current state object
+- **emit** - Function to emit custom events
+
+<Tip>
+The `render()` method should be a pure function - it should always return the same output for the same props and state.
+</Tip>
+
+### Mounting and Unmounting
+
+Mount a component to the DOM:
+
+```javascript
+const app = new MyComponent();
+app.mount(document.getElementById('app'));
+```
+
+Unmount and clean up:
+
+```javascript
+app.unmount();
+```
+
+## Functional Components
+
+Functional components are simple functions that return virtual DOM. They use hooks for state and side effects.
+
+### Basic Structure
+
+```javascript
+import { h, useState } from 'glyphui';
+
+function Counter(props) {
+  const [count, setCount] = useState(0);
+  
+  return h('div', {}, [
+    h('p', {}, [`Count: ${count}`]),
+    h('button', {
+      on: { click: () => setCount(count + 1) }
+    }, ['Increment'])
+  ]);
+}
+```
+
+### How Functional Components Work
+
+From `packages/runtime/src/component-factory.js:90-106`, functional components are wrapped internally:
+
+```javascript
+class FunctionalComponentWrapper {
+  constructor(renderFn, props = {}) {
+    this.renderFn = renderFn;
+    this.props = props;
+    this.vdom = null;
+    this._renderComponent = this._renderComponent.bind(this);
+  }
+  
+  mount(parentEl) {
+    this.parentEl = parentEl;
+    initHooks(this);  // Initialize hooks system
+    
+    const rawVdom = this.renderFn(this.props);
+    finishHooks();  // Finalize hooks
+    
+    this.vdom = resolveSlots(rawVdom, this.slotContents);
+    mountDOM(this.vdom, parentEl);
+    this.isMounted = true;
+  }
+}
+```
+
+<Note>
+Functional components are automatically wrapped to work with the component system. You don't need to worry about this internals.
+</Note>
+
+### Advantages of Functional Components
+
+- **Simpler syntax** - Less boilerplate code
+- **Easier to test** - Pure functions are straightforward to test
+- **Hooks-based** - Use hooks for state, effects, and more
+- **Better composition** - Easy to extract and share logic
+
+## Creating Components
+
+Use `createComponent()` to create component virtual nodes:
+
+```javascript
+import { createComponent } from 'glyphui';
+
+const counterVdom = createComponent(Counter, {
+  initialCount: 10,
+  title: 'My Counter'
+});
+```
+
+From `packages/runtime/src/component-factory.js:22-30`:
+
+```javascript
+export function createComponent(ComponentClass, props = {}, children = []) {
+  return {
+    type: COMPONENT_TYPE,
+    ComponentClass,
+    props: { ...props, children },
+    instance: null,
+  };
+}
+```
+
+## Component Composition
+
+Components can be composed together to build complex UIs. From `examples/component-demo/component-demo.js:48-93`:
+
+```javascript
+class CounterContainer extends Component {
+  constructor() {
+    super({}, {
+      initialState: {
+        counters: [
+          { id: 1, title: 'Counter 1', initialCount: 0 },
+          { id: 2, title: 'Counter 2', initialCount: 10 }
+        ]
+      }
+    });
+  }
+  
+  addCounter() {
+    const newId = this.state.counters.length + 1;
+    this.setState({
+      counters: [
+        ...this.state.counters,
+        {
+          id: newId,
+          title: `Counter ${newId}`,
+          initialCount: Math.floor(Math.random() * 100)
+        }
+      ]
+    });
+  }
+  
+  render(props, state) {
+    return h('div', {}, [
+      h('h2', {}, ['Counter Container']),
+      h('button', { 
+        on: { click: () => this.addCounter() }
+      }, ['Add Counter']),
+      
+      // Render child components
+      ...state.counters.map(counter => 
+        createComponent(Counter, {
+          key: counter.id,
+          title: counter.title,
+          initialCount: counter.initialCount
+        })
+      )
+    ]);
+  }
+}
+```
+
+<Warning>
+Always provide a `key` prop when rendering lists of components. This helps GlyphUI efficiently update the list.
+</Warning>
+
+## Props
+
+Props (properties) are how parent components pass data to child components.
+
+### Accessing Props
+
+In class components:
+```javascript
+render(props, state) {
+  return h('div', {}, [props.title]);
+}
+```
+
+In functional components:
+```javascript
+function MyComponent(props) {
+  return h('div', {}, [props.title]);
+}
+```
+
+### Updating Props
+
+From `packages/runtime/src/component.js:117-138`, when a parent re-renders with new props:
+
+```javascript
+updateProps(newProps) {
+  const oldProps = this.props;
+  this.props = { ...this.props, ...newProps };
+  
+  // Extract slot content from new props.children
+  if (newProps.children && Array.isArray(newProps.children)) {
+    this.slotContents = extractSlotContents(newProps.children);
+  }
+  
+  // Call lifecycle methods
+  if (this.beforeUpdate) {
+    this.beforeUpdate(oldProps, this.props);
+  }
+  
+  this._renderComponent();
+  
+  if (this.updated) {
+    this.updated(oldProps, this.props);
+  }
+}
+```
+
+### Children Prop
+
+Child elements are passed via the special `children` prop:
+
+```javascript
+createComponent(Card, { title: 'My Card' }, [
+  h('p', {}, ['Card content'])
+])
+
+// Inside Card component:
+render(props) {
+  return h('div', { class: 'card' }, [
+    h('h3', {}, [props.title]),
+    ...props.children  // Render children here
+  ]);
+}
+```
+
+## Component Communication
+
+### Parent to Child - Props
+
+Pass data down through props:
+
+```javascript
+createComponent(Counter, {
+  initialCount: 10,
+  title: 'Clicks'
+})
+```
+
+### Child to Parent - Events
+
+Emit custom events using the `emit()` method:
+
+```javascript
+class ChildComponent extends Component {
+  handleClick() {
+    this.emit('custom-event', { data: 'some value' });
+  }
+  
+  render() {
+    return h('button', {
+      on: { click: () => this.handleClick() }
+    }, ['Click me']);
+  }
+}
+```
+
+## Component vs Element
+
+It's important to understand the difference:
+
+<CodeGroup>
+```javascript Component
+// Creates a component virtual node
+createComponent(Counter, { initialCount: 0 })
+
+// Type: COMPONENT_TYPE
+// Has instance, lifecycle, and state
+```
+
+```javascript Element
+// Creates an element virtual node
+h('div', { class: 'container' }, ['content'])
+
+// Type: DOM_TYPES.ELEMENT
+// Direct representation of DOM element
+```
+</CodeGroup>
+
+## Best Practices
+
+<Accordion title="Keep Components Small and Focused">
+Each component should have a single responsibility. If a component is doing too much, split it into smaller components.
+</Accordion>
+
+<Accordion title="Use Props for Configuration">
+Make components reusable by accepting configuration through props instead of hardcoding values.
+</Accordion>
+
+<Accordion title="Avoid Direct DOM Manipulation">
+Let GlyphUI handle the DOM. Manipulating DOM directly can cause inconsistencies with the virtual DOM.
+</Accordion>
+
+<Accordion title="Prefer Functional Components">
+Use functional components with hooks unless you need lifecycle methods that hooks don't provide.
+</Accordion>
+
+## Component Instance Properties
+
+From `packages/runtime/src/component.js:17-23`, component instances have these properties:
+
+```javascript
+this.props        // Current props
+this.state        // Current state
+this.vdom         // Current virtual DOM tree
+this.parentEl     // Parent DOM element
+this.isMounted    // Whether component is mounted
+this.slotContents // Slot content from children
+```
+
+## Next Steps
+
+- [Lifecycle Methods](/concepts/lifecycle) - Learn about component lifecycle hooks
+- [Hooks](/hooks/overview) - Use hooks in functional components
+- [Slots](/components/slots) - Advanced component composition with slots
+- [State Management](/state/local-state) - Managing application state

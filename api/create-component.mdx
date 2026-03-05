@@ -1,0 +1,183 @@
+---
+title: createComponent()
+description: Create a virtual DOM node for a component
+---
+
+# createComponent()
+
+Creates a virtual DOM node for a component, allowing components to be used in the virtual DOM tree. This function is used to instantiate both class-based and functional components.
+
+## Signature
+
+```javascript
+createComponent(ComponentClass, props, children)
+```
+
+## Parameters
+
+<ParamField path="ComponentClass" type="function | class" required>
+  The component constructor (class) or functional component function.
+</ParamField>
+
+<ParamField path="props" type="object" default="{}">
+  Properties to pass to the component.
+</ParamField>
+
+<ParamField path="children" type="array" default="[]">
+  Child elements to pass to the component. These are automatically added to `props.children`.
+</ParamField>
+
+## Return Value
+
+<ResponseField name="vnode" type="object">
+  Returns a virtual DOM node object representing the component:
+  
+  ```javascript
+  {
+    type: COMPONENT_TYPE,
+    ComponentClass: function | class,
+    props: object,
+    instance: null
+  }
+  ```
+  
+  The `instance` property is set to the component instance when the component is mounted.
+</ResponseField>
+
+## Examples
+
+### Class Component
+
+```javascript
+import { Component, createComponent, h } from '@glyphui/runtime'
+
+class Button extends Component {
+  render(props) {
+    return h('button', {
+      class: props.variant || 'primary',
+      on: { click: props.onClick }
+    }, props.children)
+  }
+}
+
+// Create a component vnode
+const buttonVNode = createComponent(Button, {
+  variant: 'secondary',
+  onClick: () => console.log('Clicked!')
+}, ['Click Me'])
+```
+
+### Functional Component
+
+```javascript
+import { createComponent, h } from '@glyphui/runtime'
+
+function Card(props) {
+  return h('div', { class: 'card' }, [
+    h('h3', {}, [props.title]),
+    h('p', {}, [props.description])
+  ])
+}
+
+// Create a component vnode
+const cardVNode = createComponent(Card, {
+  title: 'My Card',
+  description: 'This is a card component'
+})
+```
+
+### With Children
+
+```javascript
+import { createComponent, h } from '@glyphui/runtime'
+
+function Container(props) {
+  return h('div', { class: 'container' }, props.children)
+}
+
+const containerVNode = createComponent(Container, {}, [
+  h('h1', {}, ['Title']),
+  h('p', {}, ['Content'])
+])
+```
+
+## Usage in Views
+
+```javascript
+import { createApp, createComponent, h } from '@glyphui/runtime'
+import Counter from './components/Counter'
+
+const app = createApp({
+  state: { user: 'John' },
+  
+  view: (state, emit) => {
+    return h('div', {}, [
+      h('h1', {}, [`Welcome, ${state.user}!`]),
+      
+      // Use createComponent to include a component
+      createComponent(Counter, {
+        initialCount: 0,
+        title: 'My Counter'
+      })
+    ])
+  },
+  
+  reducers: {}
+})
+```
+
+## When to Use createComponent()
+
+Use `createComponent()` when you need to:
+
+- Include a component in your virtual DOM tree
+- Pass props to a component
+- Use class-based or functional components in your views
+- Compose complex UIs from reusable components
+
+## How It Works
+
+1. **Virtual Node Creation**: `createComponent()` creates a special virtual node with type `COMPONENT_TYPE`
+2. **Mounting**: When the virtual node is mounted:
+   - The component is instantiated with the provided props
+   - Functional components are wrapped in a `FunctionalComponentWrapper`
+   - The component's `render()` method is called
+   - The resulting virtual DOM is mounted to the parent element
+3. **Updates**: When props change:
+   - The component's `updateProps()` method is called
+   - The component re-renders with the new props
+   - The DOM is efficiently patched
+
+## Component Types
+
+### Class Components
+
+Class components extend the `Component` base class and must implement a `render()` method:
+
+```javascript
+class MyComponent extends Component {
+  render(props, state, emit) {
+    return h('div', {}, [/* ... */])
+  }
+}
+```
+
+### Functional Components
+
+Functional components are pure functions that take props and return a virtual DOM node:
+
+```javascript
+function MyComponent(props) {
+  return h('div', {}, [/* ... */])
+}
+```
+
+GlyphUI automatically detects functional components and wraps them internally.
+
+## Notes
+
+- Children passed to `createComponent()` are automatically added to `props.children`
+- The component instance is not created until the virtual node is mounted
+- Both class-based and functional components are supported
+- Components can be nested arbitrarily deep
+- Props are passed by reference, so avoid mutating them

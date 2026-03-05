@@ -1,0 +1,204 @@
+---
+title: useState
+description: Add state management to functional components with the useState hook
+---
+
+## Overview
+
+The `useState` hook lets you add state to functional components. When you call the state setter function, GlyphUI re-renders the component with the new state value.
+
+## Signature
+
+```javascript
+const [state, setState] = useState(initialState);
+```
+
+## Parameters
+
+<ParamField path="initialState" type="any">
+  The initial value of the state. This can be any value (string, number, object, array, etc.), or a function that returns the initial value.
+  
+  If you pass a function, it will be called only during the initial render to compute the initial state. This is useful for expensive initializations.
+</ParamField>
+
+## Returns
+
+`useState` returns an array with exactly two elements:
+
+1. **`state`** - The current state value. During the first render, it equals the `initialState` you provided.
+2. **`setState`** - A function that lets you update the state and trigger a re-render.
+
+## Usage
+
+### Basic State Management
+
+```javascript
+import { h, useState } from './glyphui.js';
+
+const Counter = () => {
+  const [count, setCount] = useState(0);
+  
+  return h('div', {}, [
+    h('p', {}, [`Count: ${count}`]),
+    h('button', { onclick: () => setCount(count + 1) }, ['Increment']),
+    h('button', { onclick: () => setCount(count - 1) }, ['Decrement']),
+    h('button', { onclick: () => setCount(0) }, ['Reset'])
+  ]);
+};
+```
+
+### Functional Updates
+
+When the new state depends on the previous state, pass a function to `setState`. This ensures you're working with the most recent state value:
+
+```javascript
+const Counter = () => {
+  const [count, setCount] = useState(0);
+  
+  const increment = () => {
+    // ✅ Good: Use functional update when depending on previous state
+    setCount(prevCount => prevCount + 1);
+  };
+  
+  return h('div', {}, [
+    h('p', {}, [`Count: ${count}`]),
+    h('button', { onclick: increment }, ['Increment'])
+  ]);
+};
+```
+
+### Lazy Initialization
+
+If the initial state requires expensive computation, pass a function to `useState`. The function will only be called during the initial render:
+
+```javascript
+const ExpensiveComponent = () => {
+  // ✅ Good: Expensive computation only runs once
+  const [data, setData] = useState(() => {
+    console.log('Computing initial state...');
+    return processLargeDataset();
+  });
+  
+  return h('div', {}, [JSON.stringify(data)]);
+};
+```
+
+### Multiple State Variables
+
+You can call `useState` multiple times in a single component:
+
+```javascript
+const UserForm = () => {
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [age, setAge] = useState(0);
+  
+  return h('form', {}, [
+    h('input', {
+      value: name,
+      oninput: (e) => setName(e.target.value)
+    }, []),
+    h('input', {
+      value: email,
+      oninput: (e) => setEmail(e.target.value)
+    }, []),
+    h('input', {
+      type: 'number',
+      value: age,
+      oninput: (e) => setAge(parseInt(e.target.value))
+    }, [])
+  ]);
+};
+```
+
+### Object and Array State
+
+When storing objects or arrays in state, you need to create new objects/arrays when updating (immutable updates):
+
+```javascript
+const TodoList = () => {
+  const [todos, setTodos] = useState([]);
+  
+  const addTodo = (text) => {
+    // ✅ Good: Create new array
+    setTodos([...todos, { id: Date.now(), text }]);
+  };
+  
+  const removeTodo = (id) => {
+    // ✅ Good: Create new array with item filtered out
+    setTodos(todos.filter(todo => todo.id !== id));
+  };
+  
+  return h('div', {}, [
+    h('button', { onclick: () => addTodo('New todo') }, ['Add Todo']),
+    ...todos.map(todo => 
+      h('div', { key: todo.id }, [
+        h('span', {}, [todo.text]),
+        h('button', { onclick: () => removeTodo(todo.id) }, ['Remove'])
+      ])
+    )
+  ]);
+};
+```
+
+## How It Works
+
+The `useState` hook is implemented in `packages/runtime/src/hooks.js:99-156`. Here's what happens:
+
+1. **First Render**: When `useState` is called for the first time, it stores the initial state in the component's hooks array at the current hook index.
+
+2. **Subsequent Renders**: On re-renders, `useState` retrieves the current state value from the hooks array using the same index.
+
+3. **State Updates**: When you call `setState`:
+   - If you pass a function, it's called with the current state value
+   - The new state is compared to the old state using strict equality (`!==`)
+   - If the state changed, the component is re-rendered via `component._renderComponent()`
+   - If the state hasn't changed, no re-render occurs
+
+4. **Safety Checks**: The setter function checks if the component is still mounted before updating state, preventing memory leaks.
+
+## Important Notes
+
+### State Updates are Asynchronous
+
+State updates don't happen immediately. GlyphUI schedules a re-render, so you can't read the new state value immediately after calling `setState`:
+
+```javascript
+const [count, setCount] = useState(0);
+
+const handleClick = () => {
+  setCount(count + 1);
+  console.log(count); // ❌ Still shows old value (0)
+};
+```
+
+### State Updates are Compared by Reference
+
+GlyphUI uses strict equality (`!==`) to check if state has changed. This means:
+
+```javascript
+const [user, setUser] = useState({ name: 'Alice' });
+
+// ❌ Bad: Mutating the object doesn't trigger re-render
+user.name = 'Bob';
+setUser(user);
+
+// ✅ Good: Create a new object
+setUser({ ...user, name: 'Bob' });
+```
+
+### Unmounted Component Warning
+
+If you try to update state after a component is unmounted, you'll see this warning in the console:
+
+```
+Cannot update state: Component is not mounted or instance is lost
+```
+
+This typically happens with async operations. Use cleanup functions in `useEffect` to cancel operations when the component unmounts.
+
+## Related Hooks
+
+- [useEffect](/hooks/use-effect) - Perform side effects when state changes
+- [useMemo](/hooks/use-memo) - Memoize computed values derived from state
+- [useCallback](/hooks/use-callback) - Memoize callbacks that depend on state

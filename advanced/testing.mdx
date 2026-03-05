@@ -1,0 +1,571 @@
+---
+title: Testing
+description: Test GlyphUI components and applications with Vitest and modern testing practices
+---
+
+GlyphUI applications can be tested using standard JavaScript testing frameworks. The framework is designed to be testable, with clear component APIs and predictable behavior.
+
+## Testing Setup
+
+GlyphUI uses Vitest as its test runner, configured with jsdom for DOM environment simulation.
+
+### Vitest Configuration
+
+From `vitest.config.js`:
+
+```javascript
+import { defineConfig } from "vitest/config";
+
+export default defineConfig({
+  test: {
+    reporters: "verbose",
+    environment: "jsdom"
+  }
+});
+```
+
+### Installing Test Dependencies
+
+```bash
+npm install --save-dev vitest jsdom @vitest/ui
+```
+
+### Package.json Scripts
+
+Add test scripts to your `package.json`:
+
+```json
+{
+  "scripts": {
+    "test": "vitest",
+    "test:ui": "vitest --ui",
+    "test:coverage": "vitest --coverage"
+  }
+}
+```
+
+## Basic Component Testing
+
+### Testing a Simple Component
+
+```javascript
+import { expect, test, beforeEach, afterEach } from "vitest";
+import { Component, h } from "glyphui";
+
+class Counter extends Component {
+  constructor(props) {
+    super(props, {
+      initialState: { count: props.initialCount || 0 }
+    });
+  }
+  
+  increment() {
+    this.setState({ count: this.state.count + 1 });
+  }
+  
+  render(props, state) {
+    return h('div', {}, [
+      h('span', { id: 'count' }, [state.count.toString()]),
+      h('button', {
+        id: 'increment',
+        on: { click: () => this.increment() }
+      }, ['Increment'])
+    ]);
+  }
+}
+
+test('Counter increments when button is clicked', () => {
+  // Create container
+  const container = document.createElement('div');
+  document.body.appendChild(container);
+  
+  // Mount component
+  const counter = new Counter({ initialCount: 5 });
+  counter.mount(container);
+  
+  // Check initial state
+  const countEl = container.querySelector('#count');
+  expect(countEl.textContent).toBe('5');
+  
+  // Click button
+  const button = container.querySelector('#increment');
+  button.click();
+  
+  // Check updated state
+  expect(countEl.textContent).toBe('6');
+  
+  // Cleanup
+  counter.unmount();
+  document.body.removeChild(container);
+});
+```
+
+### Test Helper Functions
+
+Create reusable test helpers:
+
+```javascript
+// test-utils.js
+export function createTestContainer() {
+  const container = document.createElement('div');
+  document.body.appendChild(container);
+  return container;
+}
+
+export function cleanupTestContainer(container) {
+  if (container && container.parentNode) {
+    container.parentNode.removeChild(container);
+  }
+}
+
+export function mountComponent(ComponentClass, props = {}) {
+  const container = createTestContainer();
+  const instance = new ComponentClass(props);
+  instance.mount(container);
+  return { instance, container };
+}
+
+export function unmountComponent(instance, container) {
+  if (instance) instance.unmount();
+  cleanupTestContainer(container);
+}
+```
+
+Using the helpers:
+
+```javascript
+import { expect, test } from "vitest";
+import { mountComponent, unmountComponent } from './test-utils';
+
+test('Counter with helpers', () => {
+  const { instance, container } = mountComponent(Counter, { initialCount: 0 });
+  
+  const button = container.querySelector('#increment');
+  button.click();
+  
+  const count = container.querySelector('#count');
+  expect(count.textContent).toBe('1');
+  
+  unmountComponent(instance, container);
+});
+```
+
+## Testing Component Lifecycle
+
+```javascript
+import { expect, test, vi } from "vitest";
+import { Component, h } from "glyphui";
+
+class LifecycleComponent extends Component {
+  constructor(props) {
+    super(props, { initialState: { mounted: false } });
+    this.onMountCallback = props.onMount;
+    this.onUnmountCallback = props.onUnmount;
+  }
+  
+  mounted() {
+    this.setState({ mounted: true });
+    if (this.onMountCallback) {
+      this.onMountCallback();
+    }
+  }
+  
+  beforeUnmount() {
+    if (this.onUnmountCallback) {
+      this.onUnmountCallback();
+    }
+  }
+  
+  render(props, state) {
+    return h('div', {}, [state.mounted ? 'Mounted' : 'Not Mounted']);
+  }
+}
+
+test('Component lifecycle hooks are called', () => {
+  const onMount = vi.fn();
+  const onUnmount = vi.fn();
+  
+  const container = document.createElement('div');
+  document.body.appendChild(container);
+  
+  const component = new LifecycleComponent({
+    onMount,
+    onUnmount
+  });
+  
+  component.mount(container);
+  
+  // Wait for mounted() to be called
+  setTimeout(() => {
+    expect(onMount).toHaveBeenCalledTimes(1);
+    expect(container.textContent).toBe('Mounted');
+    
+    component.unmount();
+    expect(onUnmount).toHaveBeenCalledTimes(1);
+    
+    document.body.removeChild(container);
+  }, 0);
+});
+```
+
+## Testing State Updates
+
+```javascript
+import { expect, test } from "vitest";
+import { Component, h } from "glyphui";
+
+class TodoList extends Component {
+  constructor(props) {
+    super(props, {
+      initialState: { todos: [], input: '' }
+    });
+  }
+  
+  addTodo() {
+    if (this.state.input.trim()) {
+      this.setState({
+        todos: [...this.state.todos, {
+          id: Date.now(),
+          text: this.state.input
+        }],
+        input: ''
+      });
+    }
+  }
+  
+  updateInput(value) {
+    this.setState({ input: value });
+  }
+  
+  render(props, state) {
+    return h('div', {}, [
+      h('input', {
+        id: 'todo-input',
+        value: state.input,
+        on: { input: (e) => this.updateInput(e.target.value) }
+      }),
+      h('button', {
+        id: 'add-todo',
+        on: { click: () => this.addTodo() }
+      }, ['Add']),
+      h('ul', {},
+        state.todos.map(todo =>
+          h('li', { key: todo.id }, [todo.text])
+        )
+      )
+    ]);
+  }
+}
+
+test('TodoList adds todos', () => {
+  const container = document.createElement('div');
+  document.body.appendChild(container);
+  
+  const todoList = new TodoList({});
+  todoList.mount(container);
+  
+  // Type in input
+  const input = container.querySelector('#todo-input');
+  input.value = 'Buy milk';
+  input.dispatchEvent(new Event('input'));
+  
+  // Click add button
+  const button = container.querySelector('#add-todo');
+  button.click();
+  
+  // Check todo was added
+  const todos = container.querySelectorAll('li');
+  expect(todos.length).toBe(1);
+  expect(todos[0].textContent).toBe('Buy milk');
+  
+  // Input should be cleared
+  expect(input.value).toBe('');
+  
+  // Cleanup
+  todoList.unmount();
+  document.body.removeChild(container);
+});
+```
+
+## Testing Hooks
+
+### Testing useState
+
+```javascript
+import { expect, test } from "vitest";
+import { useState, h, initHooks, finishHooks } from "glyphui";
+
+function Counter() {
+  const [count, setCount] = useState(0);
+  
+  return h('div', {}, [
+    h('span', { id: 'count' }, [count.toString()]),
+    h('button', {
+      id: 'increment',
+      on: { click: () => setCount(count + 1) }
+    }, ['Increment'])
+  ]);
+}
+
+test('useState hook updates state', () => {
+  const container = document.createElement('div');
+  document.body.appendChild(container);
+  
+  // Create a functional component wrapper
+  class FunctionalWrapper extends Component {
+    render() {
+      initHooks(this);
+      const vdom = Counter();
+      finishHooks();
+      return vdom;
+    }
+  }
+  
+  const wrapper = new FunctionalWrapper({});
+  wrapper.mount(container);
+  
+  const countEl = container.querySelector('#count');
+  expect(countEl.textContent).toBe('0');
+  
+  const button = container.querySelector('#increment');
+  button.click();
+  
+  setTimeout(() => {
+    expect(countEl.textContent).toBe('1');
+    
+    wrapper.unmount();
+    document.body.removeChild(container);
+  }, 0);
+});
+```
+
+### Testing useEffect
+
+```javascript
+import { expect, test, vi } from "vitest";
+import { useState, useEffect } from "glyphui";
+
+function DataFetcher({ url }) {
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  
+  useEffect(() => {
+    setLoading(true);
+    fetch(url)
+      .then(res => res.json())
+      .then(data => {
+        setData(data);
+        setLoading(false);
+      });
+  }, [url]);
+  
+  if (loading) {
+    return h('div', {}, ['Loading...']);
+  }
+  
+  return h('div', {}, [JSON.stringify(data)]);
+}
+
+test('useEffect fetches data', async () => {
+  // Mock fetch
+  global.fetch = vi.fn(() =>
+    Promise.resolve({
+      json: () => Promise.resolve({ message: 'Hello' })
+    })
+  );
+  
+  const container = document.createElement('div');
+  document.body.appendChild(container);
+  
+  class Wrapper extends Component {
+    render() {
+      initHooks(this);
+      const vdom = DataFetcher({ url: '/api/data' });
+      finishHooks();
+      return vdom;
+    }
+  }
+  
+  const wrapper = new Wrapper({});
+  wrapper.mount(container);
+  
+  // Initially loading
+  expect(container.textContent).toBe('Loading...');
+  
+  // Wait for effect and data to load
+  await new Promise(resolve => setTimeout(resolve, 10));
+  
+  expect(global.fetch).toHaveBeenCalledWith('/api/data');
+  expect(container.textContent).toContain('Hello');
+  
+  wrapper.unmount();
+  document.body.removeChild(container);
+});
+```
+
+## Testing Lazy Loading
+
+```javascript
+import { expect, test } from "vitest";
+import { lazy, createDelayedComponent, Component, h } from "glyphui";
+
+class LazyComponent extends Component {
+  render() {
+    return h('div', { id: 'lazy' }, ['Lazy Loaded!']);
+  }
+}
+
+test('lazy component loads after delay', async () => {
+  const LazyLoaded = lazy(
+    createDelayedComponent(LazyComponent, 100)
+  );
+  
+  const container = document.createElement('div');
+  document.body.appendChild(container);
+  
+  class Wrapper extends Component {
+    render() {
+      return LazyLoaded();
+    }
+  }
+  
+  const wrapper = new Wrapper({});
+  wrapper.mount(container);
+  
+  // Initially shows loading
+  expect(container.textContent).toContain('Loading');
+  
+  // Wait for component to load
+  await new Promise(resolve => setTimeout(resolve, 150));
+  
+  // Should show lazy component
+  expect(container.querySelector('#lazy')).toBeTruthy();
+  expect(container.textContent).toBe('Lazy Loaded!');
+  
+  wrapper.unmount();
+  document.body.removeChild(container);
+});
+```
+
+## Testing Event Handlers
+
+```javascript
+import { expect, test, vi } from "vitest";
+import { Component, h } from "glyphui";
+
+class Button extends Component {
+  render(props) {
+    return h('button', {
+      id: 'test-button',
+      on: { click: props.onClick }
+    }, [props.label]);
+  }
+}
+
+test('Button calls onClick handler', () => {
+  const onClick = vi.fn();
+  
+  const container = document.createElement('div');
+  document.body.appendChild(container);
+  
+  const button = new Button({ onClick, label: 'Click Me' });
+  button.mount(container);
+  
+  const buttonEl = container.querySelector('#test-button');
+  buttonEl.click();
+  
+  expect(onClick).toHaveBeenCalledTimes(1);
+  
+  button.unmount();
+  document.body.removeChild(container);
+});
+```
+
+## Snapshot Testing
+
+```javascript
+import { expect, test } from "vitest";
+import { Component, h } from "glyphui";
+
+class Card extends Component {
+  render(props) {
+    return h('div', { class: 'card' }, [
+      h('h2', {}, [props.title]),
+      h('p', {}, [props.content])
+    ]);
+  }
+}
+
+test('Card renders correctly', () => {
+  const container = document.createElement('div');
+  document.body.appendChild(container);
+  
+  const card = new Card({
+    title: 'Test Card',
+    content: 'This is test content'
+  });
+  card.mount(container);
+  
+  expect(container.innerHTML).toMatchSnapshot();
+  
+  card.unmount();
+  document.body.removeChild(container);
+});
+```
+
+## Best Practices
+
+1. **Isolate tests**: Each test should be independent and not rely on other tests
+2. **Clean up**: Always unmount components and remove containers after tests
+3. **Use test utilities**: Create helper functions for common testing patterns
+4. **Mock external dependencies**: Use `vi.fn()` to mock functions and APIs
+5. **Test user interactions**: Simulate real user behavior (clicks, inputs, etc.)
+6. **Test edge cases**: Include tests for error states and boundary conditions
+7. **Keep tests simple**: Each test should verify one specific behavior
+8. **Use descriptive names**: Test names should clearly describe what they verify
+
+<Tip>
+Organize your tests in the same directory structure as your components. This makes it easy to find and maintain tests.
+</Tip>
+
+## Running Tests
+
+```bash
+# Run all tests
+npm test
+
+# Run tests in watch mode
+npm test -- --watch
+
+# Run tests with UI
+npm run test:ui
+
+# Run tests with coverage
+npm run test:coverage
+
+# Run specific test file
+npm test -- Counter.test.js
+```
+
+## Testing Checklist
+
+When testing components, verify:
+
+- [ ] Component renders correctly with default props
+- [ ] Component renders correctly with various prop combinations
+- [ ] State updates trigger re-renders
+- [ ] Event handlers are called with correct arguments
+- [ ] Lifecycle methods execute in correct order
+- [ ] Component cleans up resources on unmount
+- [ ] Error states are handled gracefully
+- [ ] Edge cases and boundary conditions work correctly
+
+<Warning>
+Always clean up after tests to prevent memory leaks and test interference. Unmount components and remove DOM elements.
+</Warning>
+
+## Related
+
+- [Component Lifecycle](/concepts/lifecycle) - Understanding lifecycle methods
+- [Hooks Overview](/hooks/overview) - Testing functional components with hooks
+- [Performance](/advanced/performance) - Performance testing strategies

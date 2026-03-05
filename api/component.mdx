@@ -1,0 +1,303 @@
+---
+title: Component
+description: Base class for creating stateful components
+---
+
+# Component
+
+The `Component` class is the base class for creating stateful components in GlyphUI. It provides lifecycle methods, state management, and event handling.
+
+## Constructor
+
+```javascript
+new Component(props, options)
+```
+
+### Parameters
+
+<ParamField path="props" type="object" default="{}">
+  Properties passed to the component from the parent.
+</ParamField>
+
+<ParamField path="options" type="object" default="{}">
+  Component configuration options.
+  
+  <ParamField path="options.initialState" type="object" default="{}">
+    The initial state for the component.
+  </ParamField>
+</ParamField>
+
+## Instance Properties
+
+- **`props`** (object): The properties passed to the component
+- **`state`** (object): The component's internal state
+- **`vdom`** (object): The current virtual DOM representation
+- **`parentEl`** (HTMLElement): The parent DOM element
+- **`isMounted`** (boolean): Whether the component is currently mounted
+- **`slotContents`** (object): Extracted slot content from children
+
+## Methods
+
+### setState()
+
+Updates the component's state and triggers a re-render.
+
+**Signature:**
+```javascript
+setState(stateChange)
+```
+
+<ParamField path="stateChange" type="object | function" required>
+  Either an object to merge with the current state, or a function that receives the current state and returns the new state.
+</ParamField>
+
+**Examples:**
+```javascript
+// Object form
+this.setState({ count: 5 })
+
+// Function form
+this.setState(state => ({ count: state.count + 1 }))
+```
+
+### emit()
+
+Emits an event to the component's internal dispatcher.
+
+**Signature:**
+```javascript
+emit(eventName, payload)
+```
+
+<ParamField path="eventName" type="string" required>
+  The name of the event to emit.
+</ParamField>
+
+<ParamField path="payload" type="any">
+  The payload to pass with the event.
+</ParamField>
+
+**Example:**
+```javascript
+this.emit('user-action', { action: 'click', value: 10 })
+```
+
+### render()
+
+Renders the component's virtual DOM. **Must be overridden by subclasses.**
+
+**Signature:**
+```javascript
+render(props, state, emit)
+```
+
+<ParamField path="props" type="object">
+  The component's props.
+</ParamField>
+
+<ParamField path="state" type="object">
+  The component's current state.
+</ParamField>
+
+<ParamField path="emit" type="function">
+  The emit function for dispatching events.
+</ParamField>
+
+**Returns:** A virtual DOM node
+
+**Example:**
+```javascript
+render(props, state, emit) {
+  return h('div', {}, [
+    h('h1', {}, [props.title]),
+    h('p', {}, [`Count: ${state.count}`])
+  ])
+}
+```
+
+### mount()
+
+Mounts the component to a DOM element.
+
+**Signature:**
+```javascript
+mount(parentEl)
+```
+
+<ParamField path="parentEl" type="HTMLElement" required>
+  The parent element to mount to.
+</ParamField>
+
+**Returns:** The component instance (for chaining)
+
+### unmount()
+
+Unmounts the component and cleans up resources.
+
+**Signature:**
+```javascript
+unmount()
+```
+
+### updateProps()
+
+Updates the component with new props and re-renders.
+
+**Signature:**
+```javascript
+updateProps(newProps)
+```
+
+<ParamField path="newProps" type="object" required>
+  New properties to merge with existing props.
+</ParamField>
+
+## Lifecycle Methods
+
+Override these methods in your component to hook into the component lifecycle:
+
+### beforeMount()
+
+Called before the component is mounted to the DOM.
+
+```javascript
+beforeMount() {
+  // Setup logic before mounting
+}
+```
+
+### mounted()
+
+Called after the component is mounted to the DOM.
+
+```javascript
+mounted() {
+  // Logic after mounting (e.g., fetch data, setup timers)
+}
+```
+
+### beforeUpdate()
+
+Called before the component updates due to prop changes.
+
+**Signature:**
+```javascript
+beforeUpdate(oldProps, newProps)
+```
+
+<ParamField path="oldProps" type="object">
+  The previous props.
+</ParamField>
+
+<ParamField path="newProps" type="object">
+  The new props.
+</ParamField>
+
+### updated()
+
+Called after the component updates due to prop changes.
+
+**Signature:**
+```javascript
+updated(oldProps, newProps)
+```
+
+<ParamField path="oldProps" type="object">
+  The previous props.
+</ParamField>
+
+<ParamField path="newProps" type="object">
+  The new props.
+</ParamField>
+
+### beforeUnmount()
+
+Called before the component is unmounted.
+
+```javascript
+beforeUnmount() {
+  // Cleanup logic before unmounting
+}
+```
+
+### unmounted()
+
+Called after the component is unmounted.
+
+```javascript
+unmounted() {
+  // Final cleanup logic
+}
+```
+
+## Complete Example
+
+```javascript
+import { Component } from '@glyphui/runtime'
+import { h } from '@glyphui/runtime'
+
+class Counter extends Component {
+  constructor(props) {
+    super(props, {
+      initialState: {
+        count: props.initialCount || 0
+      }
+    })
+  }
+  
+  beforeMount() {
+    console.log('Counter is about to mount')
+  }
+  
+  mounted() {
+    console.log('Counter mounted with count:', this.state.count)
+  }
+  
+  increment() {
+    this.setState(state => ({ count: state.count + 1 }))
+  }
+  
+  decrement() {
+    this.setState(state => ({ count: state.count - 1 }))
+  }
+  
+  render(props, state, emit) {
+    return h('div', { class: 'counter' }, [
+      h('h2', {}, [props.title || 'Counter']),
+      h('p', {}, [`Count: ${state.count}`]),
+      h('button', {
+        on: { click: () => this.increment() }
+      }, ['+']),
+      h('button', {
+        on: { click: () => this.decrement() }
+      }, ['-'])
+    ])
+  }
+  
+  beforeUnmount() {
+    console.log('Counter is about to unmount')
+  }
+}
+
+export default Counter
+```
+
+## Usage
+
+```javascript
+import { createComponent } from '@glyphui/runtime'
+import Counter from './Counter'
+
+// In your view or another component
+const counterVNode = createComponent(Counter, {
+  title: 'My Counter',
+  initialCount: 10
+})
+```
+
+## Notes
+
+- Components must override the `render()` method, or an error will be thrown
+- State updates via `setState()` automatically trigger a re-render
+- Lifecycle methods are optional and only called if defined
+- The component automatically handles slot content from `props.children`

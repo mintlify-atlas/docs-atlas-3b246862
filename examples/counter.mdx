@@ -1,0 +1,168 @@
+---
+title: 'Counter'
+description: 'A simple counter app demonstrating state management and event handling'
+icon: 'plus-minus'
+---
+
+## Overview
+
+The Counter example is a minimal app that demonstrates the fundamentals of GlyphUI:
+- Component-based architecture
+- Local state management with `setState`
+- Event handling with the `on` property
+- Virtual DOM rendering with `h()` and `hFragment()`
+
+<Card title="Live Demo" icon="play" href="https://github.com/x0bd/glyphui/tree/main/examples/counter">
+  View the complete source code on GitHub
+</Card>
+
+## What You'll Learn
+
+<CardGroup cols={2}>
+  <Card title="Component Class" icon="cube">
+    Extending the base Component class
+  </Card>
+  <Card title="State Management" icon="database">
+    Using setState to update component state
+  </Card>
+  <Card title="Event Handling" icon="hand-pointer">
+    Binding click events to methods
+  </Card>
+  <Card title="Virtual DOM" icon="code">
+    Creating elements with h() function
+  </Card>
+</CardGroup>
+
+## Complete Code
+
+### Component Implementation
+
+```javascript counter.js
+import {
+  Component,
+  h,
+  hFragment,
+  hString,
+} from "@glyphui/runtime";
+
+class CounterApp extends Component {
+  constructor() {
+    super({}, {
+      initialState: { count: 0 }
+    });
+  }
+  
+  increment() {
+    this.setState({ count: this.state.count + 1 });
+  }
+  
+  decrement() {
+    this.setState({ count: this.state.count - 1 });
+  }
+  
+  render(props, state) {
+    return hFragment([
+      h("button", { on: { click: () => this.decrement() } }, ["-"]),
+      h("span", {}, [
+        hString("count is: "),
+        hString(state.count),
+      ]),
+      h("button", { on: { click: () => this.increment() } }, ["+"]),
+    ]);
+  }
+}
+
+// Mount the app
+const app = new CounterApp();
+app.mount(document.querySelector("main"));
+```
+
+## Key Concepts
+
+### 1. Component Constructor
+
+The constructor initializes the component with an initial state:
+
+```javascript
+constructor() {
+  super({}, {
+    initialState: { count: 0 }
+  });
+}
+```
+
+- First argument `{}` is for props (empty in this case)
+- Second argument defines the initial state
+
+### 2. State Updates
+
+The `setState()` method triggers a re-render:
+
+```javascript
+increment() {
+  this.setState({ count: this.state.count + 1 });
+}
+```
+
+<Note>
+  `setState()` merges the new state with the existing state and automatically triggers a re-render.
+</Note>
+
+### 3. Event Handling
+
+Events are bound using the `on` property:
+
+```javascript
+h("button", { on: { click: () => this.increment() } }, ["+"])
+```
+
+The `on` object maps event names to handler functions.
+
+### 4. Virtual DOM Creation
+
+Elements are created using helper functions:
+
+- **`h(tag, props, children)`** - Creates a virtual DOM element
+- **`hFragment(children)`** - Groups multiple elements without a wrapper
+- **`hString(text)`** - Creates a text node
+
+## Running the Example
+
+<Steps>
+  <Step title="Clone the repository">
+    ```bash
+    git clone https://github.com/x0bd/glyphui.git
+    cd glyphui/examples/counter
+    ```
+  </Step>
+  
+  <Step title="Install dependencies">
+    ```bash
+    npm install
+    ```
+  </Step>
+  
+  <Step title="Open in browser">
+    Open `counter.html` in your browser or use a local development server:
+    ```bash
+    npx serve .
+    ```
+  </Step>
+</Steps>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Todo App" icon="list-check" href="/examples/todo-app">
+    Learn about global state management with stores
+  </Card>
+  <Card title="Components Guide" icon="cube" href="/concepts/components">
+    Deep dive into component architecture
+  </Card>
+  <Card title="State Management" icon="database" href="/state/global-store">
+    Learn more about managing state
+  </Card>
+  <Card title="Event Handling" icon="bolt" href="/concepts/components">
+    Master event handling patterns
+  </Card>
+</CardGroup>

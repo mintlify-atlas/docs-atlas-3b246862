@@ -1,0 +1,328 @@
+---
+title: createApp Pattern
+description: Manage application-level state with the createApp pattern and reducers
+---
+
+The `createApp` pattern provides a centralized way to manage application state using reducers and an event-driven architecture. This approach is ideal for simple applications that need predictable state updates.
+
+## Basic Usage
+
+Create an application with initial state, reducers, and a top-level view:
+
+```javascript
+import { createApp, h } from 'glyphui';
+
+const app = createApp({
+  state: {
+    count: 0
+  },
+  
+  reducers: {
+    increment(state, payload) {
+      return { ...state, count: state.count + 1 };
+    },
+    
+    decrement(state, payload) {
+      return { ...state, count: state.count - 1 };
+    },
+    
+    reset(state, payload) {
+      return { ...state, count: 0 };
+    }
+  },
+  
+  view(state, emit) {
+    return h('div', { class: 'counter' }, [
+      h('h2', {}, ['Counter']),
+      h('div', { class: 'counter-value' }, [state.count.toString()]),
+      h('button', { on: { click: () => emit('increment') } }, ['+']),
+      h('button', { on: { click: () => emit('decrement') } }, ['-']),
+      h('button', { on: { click: () => emit('reset') } }, ['Reset'])
+    ]);
+  }
+});
+
+app.mount(document.getElementById('app'));
+```
+
+## Configuration Object
+
+The `createApp` function accepts a configuration object:
+
+```javascript
+const app = createApp({
+  // Initial application state (default: {})
+  state: {
+    // Your initial state properties
+  },
+  
+  // Top-level view function (default: null)
+  view: (state, emit) => {
+    // Return virtual DOM representing your UI
+  },
+  
+  // Reducer functions for state updates (default: {})
+  reducers: {
+    actionName: (state, payload) => {
+      // Return new state
+    }
+  }
+});
+```
+
+### State
+
+The initial state of your application. Can be any JavaScript object:
+
+```javascript
+state: {
+  todos: [],
+  filter: 'all',
+  user: null,
+  isLoading: false
+}
+```
+
+### View Function
+
+The view function receives the current state and emit function:
+
+```javascript
+view(state, emit) {
+  // state - current application state
+  // emit - function to dispatch actions
+  
+  return h('div', {}, [
+    // Your UI components
+  ]);
+}
+```
+
+### Reducers
+
+Reducers are pure functions that take the current state and a payload, returning the new state:
+
+```javascript
+reducers: {
+  // Reducer signature: (state, payload) => newState
+  addTodo(state, text) {
+    return {
+      ...state,
+      todos: [
+        ...state.todos,
+        { id: Date.now(), text, completed: false }
+      ]
+    };
+  },
+  
+  toggleTodo(state, id) {
+    return {
+      ...state,
+      todos: state.todos.map(todo =>
+        todo.id === id ? { ...todo, completed: !todo.completed } : todo
+      )
+    };
+  }
+}
+```
+
+<Note>
+  Reducers must be pure functions - they should not modify the existing state directly. Always return a new state object.
+</Note>
+
+## The emit Pattern
+
+Use `emit` to dispatch actions that trigger reducers:
+
+```javascript
+// Emit with no payload
+emit('reset');
+
+// Emit with a single value
+emit('addTodo', 'Buy groceries');
+
+// Emit with an object payload
+emit('updateUser', {
+  name: 'John Doe',
+  email: 'john@example.com'
+});
+```
+
+When you emit an action:
+
+1. The corresponding reducer is called with the current state and payload
+2. The reducer returns the new state
+3. The view is re-rendered with the updated state
+
+## Complete Todo Example
+
+```javascript
+import { createApp, h } from 'glyphui';
+
+const app = createApp({
+  state: {
+    todos: [],
+    newTodoText: '',
+    filter: 'all',
+    nextId: 1
+  },
+  
+  reducers: {
+    setNewTodoText(state, text) {
+      return { ...state, newTodoText: text };
+    },
+    
+    addTodo(state) {
+      if (!state.newTodoText.trim()) return state;
+      
+      return {
+        ...state,
+        todos: [
+          ...state.todos,
+          {
+            id: state.nextId,
+            text: state.newTodoText,
+            completed: false
+          }
+        ],
+        newTodoText: '',
+        nextId: state.nextId + 1
+      };
+    },
+    
+    toggleTodo(state, id) {
+      return {
+        ...state,
+        todos: state.todos.map(todo =>
+          todo.id === id ? { ...todo, completed: !todo.completed } : todo
+        )
+      };
+    },
+    
+    removeTodo(state, id) {
+      return {
+        ...state,
+        todos: state.todos.filter(todo => todo.id !== id)
+      };
+    },
+    
+    setFilter(state, filter) {
+      return { ...state, filter };
+    }
+  },
+  
+  view(state, emit) {
+    // Filter todos based on current filter
+    const filteredTodos = state.todos.filter(todo => {
+      if (state.filter === 'active') return !todo.completed;
+      if (state.filter === 'completed') return todo.completed;
+      return true;
+    });
+    
+    return h('div', { class: 'todo-app' }, [
+      // Header
+      h('h1', {}, ['Todos']),
+      
+      // Input
+      h('div', { class: 'todo-input' }, [
+        h('input', {
+          type: 'text',
+          value: state.newTodoText,
+          placeholder: 'What needs to be done?',
+          on: {
+            input: (e) => emit('setNewTodoText', e.target.value),
+            keydown: (e) => {
+              if (e.key === 'Enter') emit('addTodo');
+            }
+          }
+        }),
+        h('button', { on: { click: () => emit('addTodo') } }, ['Add'])
+      ]),
+      
+      // Todo list
+      h('div', { class: 'todos' },
+        filteredTodos.map(todo =>
+          h('div', {
+            key: todo.id,
+            class: `todo-item ${todo.completed ? 'completed' : ''}`
+          }, [
+            h('span', {
+              on: { click: () => emit('toggleTodo', todo.id) }
+            }, [todo.text]),
+            h('button', {
+              on: { click: () => emit('removeTodo', todo.id) }
+            }, ['Remove'])
+          ])
+        )
+      ),
+      
+      // Filters
+      h('div', { class: 'filters' }, [
+        h('button', {
+          class: state.filter === 'all' ? 'active' : '',
+          on: { click: () => emit('setFilter', 'all') }
+        }, ['All']),
+        h('button', {
+          class: state.filter === 'active' ? 'active' : '',
+          on: { click: () => emit('setFilter', 'active') }
+        }, ['Active']),
+        h('button', {
+          class: state.filter === 'completed' ? 'active' : '',
+          on: { click: () => emit('setFilter', 'completed') }
+        }, ['Completed'])
+      ])
+    ]);
+  }
+});
+
+app.mount(document.getElementById('app'));
+```
+
+## App Instance Methods
+
+The app instance provides three methods:
+
+### mount(element)
+
+Mounts the application to a DOM element:
+
+```javascript
+app.mount(document.getElementById('app'));
+```
+
+### unmount()
+
+Unmounts the application and cleans up all subscriptions:
+
+```javascript
+app.unmount();
+```
+
+### emit(eventName, payload)
+
+Emits an action from outside the view:
+
+```javascript
+// Trigger actions externally
+app.emit('reset');
+app.emit('addTodo', 'New task');
+```
+
+## When to Use createApp
+
+The `createApp` pattern is best for:
+
+- **Simple applications** with a single top-level view
+- **Centralized state** that follows a predictable update pattern
+- **Event-driven architectures** where actions flow in one direction
+- **Learning GlyphUI** as it provides a complete app structure
+
+<Note>
+  For larger applications with multiple components that need shared state, consider using [global stores](/state/global-store) with the [connect](/state/connect) pattern instead.
+</Note>
+
+## Next Steps
+
+- Explore [global stores](/state/global-store) for component-based state management
+- Learn about [connecting components](/state/connect) to shared state
+- Review [local state](/state/local-state) for component-specific data

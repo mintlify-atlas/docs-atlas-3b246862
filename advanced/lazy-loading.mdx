@@ -1,0 +1,305 @@
+---
+title: Lazy Loading
+description: Load components on-demand to reduce initial bundle size and improve performance
+---
+
+Lazy loading allows you to split your application into smaller chunks and load components only when they're needed. This reduces initial bundle size and improves load times.
+
+## The lazy() Function
+
+GlyphUI provides a `lazy()` function that creates a wrapper component to handle asynchronous component loading:
+
+```javascript
+import { lazy } from 'glyphui';
+
+// Create a lazy-loaded component
+const DashboardPage = lazy(() => import('./components/DashboardPage.js'));
+```
+
+### API Reference
+
+The `lazy()` function accepts two parameters:
+
+- **loader** (required): A function that returns a Promise resolving to the component class
+- **options** (optional): Configuration object with the following properties:
+  - `loading`: Component or vdom to display while loading (default: simple "Loading..." text)
+  - `error`: Component or vdom to display on error (default: error message display)
+
+### Return Value
+
+Returns a factory function that creates the lazy component wrapper. Call this function to render the lazy component:
+
+```javascript
+const LazyComponent = lazy(loader, options);
+
+// In your render method
+return LazyComponent();
+```
+
+## Basic Example
+
+Here's a simple example of lazy loading a component:
+
+```javascript
+import { Component, lazy, createComponent } from 'glyphui';
+
+class HomePage extends Component {
+  render() {
+    return h('div', {}, [
+      h('h1', {}, ['Home']),
+      h('p', {}, ['Welcome to the home page'])
+    ]);
+  }
+}
+
+class ProfilePage extends Component {
+  render() {
+    return h('div', {}, [
+      h('h1', {}, ['Profile']),
+      h('p', {}, ['User profile information'])
+    ]);
+  }
+}
+
+// Create lazy version that loads after delay
+const LazyProfile = lazy(
+  () => new Promise(resolve => {
+    setTimeout(() => resolve(ProfilePage), 1000);
+  })
+);
+
+class App extends Component {
+  constructor() {
+    super({}, {
+      initialState: { page: 'home' }
+    });
+  }
+  
+  render(props, state) {
+    if (state.page === 'home') {
+      return createComponent(HomePage);
+    }
+    
+    // Call the factory function to render lazy component
+    return LazyProfile();
+  }
+}
+```
+
+## Custom Loading Component
+
+You can provide a custom loading component to show while the lazy component loads:
+
+```javascript
+class CustomLoader extends Component {
+  constructor(props) {
+    super(props, {
+      initialState: { dots: 1 }
+    });
+    
+    this.interval = setInterval(() => {
+      this.setState({ dots: (this.state.dots % 3) + 1 });
+    }, 300);
+  }
+  
+  beforeUnmount() {
+    clearInterval(this.interval);
+  }
+  
+  render() {
+    const dotsStr = '.'.repeat(this.state.dots);
+    
+    return h('div', {
+      style: {
+        padding: '30px',
+        textAlign: 'center',
+        background: '#f9f9f9'
+      }
+    }, [
+      h('div', {}, [`Loading${dotsStr}`])
+    ]);
+  }
+}
+
+const LazyDashboard = lazy(
+  () => import('./DashboardPage.js'),
+  { loading: CustomLoader }
+);
+```
+
+## Custom Error Handling
+
+Provide a custom error component to display when loading fails:
+
+```javascript
+class CustomError extends Component {
+  render(props) {
+    return h('div', {
+      style: {
+        padding: '20px',
+        color: 'red',
+        border: '1px solid red'
+      }
+    }, [
+      h('h3', {}, ['Failed to Load Component']),
+      h('p', {}, [props.error.message]),
+      h('button', {
+        on: { click: () => window.location.reload() }
+      }, ['Retry'])
+    ]);
+  }
+}
+
+const LazySettings = lazy(
+  () => import('./SettingsPage.js'),
+  {
+    loading: CustomLoader,
+    error: CustomError
+  }
+);
+```
+
+## Complete Navigation Example
+
+Here's a complete example with multiple lazy-loaded pages:
+
+```javascript
+import {
+  Component,
+  createComponent,
+  h,
+  lazy
+} from 'glyphui';
+
+class HomePage extends Component {
+  render() {
+    return h('div', { class: 'card' }, [
+      h('h2', {}, ['Home']),
+      h('p', {}, ['Welcome to the home page'])
+    ]);
+  }
+}
+
+class DashboardPage extends Component {
+  render() {
+    return h('div', { class: 'card' }, [
+      h('h2', {}, ['Dashboard']),
+      h('p', {}, ['This page was loaded lazily!'])
+    ]);
+  }
+}
+
+class ProfilePage extends Component {
+  render() {
+    return h('div', { class: 'card' }, [
+      h('h2', {}, ['Profile']),
+      h('p', {}, ['User profile loaded on demand'])
+    ]);
+  }
+}
+
+class App extends Component {
+  constructor() {
+    super({}, {
+      initialState: { currentPage: 'home' }
+    });
+    
+    // Create lazy components
+    this.lazyComponents = {
+      home: HomePage,
+      dashboard: lazy(() => Promise.resolve(DashboardPage)),
+      profile: lazy(() => Promise.resolve(ProfilePage))
+    };
+  }
+  
+  navigateTo(page) {
+    this.setState({ currentPage: page });
+  }
+  
+  render(props, state) {
+    const { currentPage } = state;
+    
+    // For home, use regular component
+    if (currentPage === 'home') {
+      return createComponent(this.lazyComponents.home);
+    }
+    
+    // For lazy components, call the factory function
+    const lazyFactory = this.lazyComponents[currentPage];
+    return lazyFactory();
+  }
+}
+```
+
+<Tip>
+Lazy loading works best for large components or entire pages that aren't needed on initial render. For small components, the overhead of lazy loading may outweigh the benefits.
+</Tip>
+
+## Using createDelayedComponent
+
+For testing lazy loading behavior, GlyphUI provides `createDelayedComponent()` to simulate network delay:
+
+```javascript
+import { lazy, createDelayedComponent } from 'glyphui';
+
+const LazyComponent = lazy(
+  createDelayedComponent(DashboardPage, 1500), // 1.5 second delay
+  { loading: CustomLoader }
+);
+```
+
+### Parameters
+
+- **Component**: The component class to load
+- **delayMs**: Delay in milliseconds (default: 1000)
+
+This is useful for:
+- Testing loading states during development
+- Simulating slow network conditions
+- Demonstrating loading UI to stakeholders
+
+<Warning>
+`createDelayedComponent()` is intended for development and testing only. In production, use dynamic imports for true code splitting.
+</Warning>
+
+## How Lazy Loading Works
+
+When you call `lazy()`, it creates a wrapper component (`LazyComponent`) that manages three states:
+
+1. **loading**: Shows the loading component while the async loader runs
+2. **loaded**: Renders the actual component once loaded
+3. **error**: Displays the error component if loading fails
+
+The wrapper component:
+- Starts loading immediately when constructed
+- Handles both ES module default exports and direct component classes
+- Automatically transfers props to the loaded component
+- Cleans up properly when unmounted
+
+## Code Splitting with Build Tools
+
+For production applications, use dynamic imports with a bundler like Webpack or Rollup:
+
+```javascript
+// This creates a separate bundle chunk
+const LazyDashboard = lazy(() => import('./pages/Dashboard.js'));
+
+// You can also use named exports
+const LazySettings = lazy(
+  () => import('./pages/Settings.js').then(m => m.SettingsPage)
+);
+```
+
+## Best Practices
+
+1. **Load on route changes**: Lazy load entire pages/routes rather than small components
+2. **Provide loading feedback**: Always show loading state for better UX
+3. **Handle errors gracefully**: Implement error boundaries and retry logic
+4. **Preload critical routes**: Consider preloading routes the user is likely to visit
+5. **Monitor bundle sizes**: Use bundle analysis tools to identify heavy components
+
+## Related
+
+- [Suspense](/advanced/suspense) - Alternative loading pattern
+- [Performance Optimization](/advanced/performance) - General performance tips
+- [API: lazy()](/api/lazy) - Full API reference

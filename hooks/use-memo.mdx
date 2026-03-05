@@ -1,0 +1,309 @@
+---
+title: useMemo
+description: Optimize performance by memoizing expensive computations with the useMemo hook
+---
+
+## Overview
+
+The `useMemo` hook returns a memoized (cached) value. It will only recompute the memoized value when one of the dependencies has changed, helping you avoid expensive calculations on every render.
+
+Use `useMemo` to optimize performance when you have:
+- Expensive computations (complex calculations, data transformations)
+- Derived values that depend on props or state
+- Objects or arrays that should maintain referential equality
+
+## Signature
+
+```javascript
+const memoizedValue = useMemo(factory, dependencies);
+```
+
+## Parameters
+
+<ParamField path="factory" type="function" required>
+  A function that computes and returns the value you want to memoize. This function should be pure (no side effects) and take no arguments.
+  
+  The function will be called during the initial render and whenever dependencies change.
+</ParamField>
+
+<ParamField path="dependencies" type="array">
+  An optional array of dependencies. The memoized value will only be recalculated if one of these dependencies has changed.
+  
+  - **Empty array `[]`**: Value is computed once and never recalculated
+  - **Array with values**: Value is recalculated when any dependency changes
+  - **Omitted or `null`**: Value is recalculated on every render (defeats the purpose)
+</ParamField>
+
+## Returns
+
+Returns the memoized value. On the first render, it returns the result of calling `factory()`. On subsequent renders, it either returns the cached value (if dependencies haven't changed) or recalculates and returns a new value (if dependencies changed).
+
+## Usage
+
+### Expensive Calculations
+
+Memoize expensive computations so they only run when necessary:
+
+```javascript
+import { h, useState, useMemo } from './glyphui.js';
+
+const FibonacciCalculator = () => {
+  const [number, setNumber] = useState(20);
+  const [theme, setTheme] = useState('light');
+  
+  // Expensive calculation - only runs when 'number' changes
+  const fibonacci = useMemo(() => {
+    console.log('Calculating Fibonacci...');
+    
+    const fib = (n) => {
+      if (n <= 1) return n;
+      if (n === 2) return 1;
+      return fib(n - 1) + fib(n - 2);
+    };
+    
+    return fib(number);
+  }, [number]); // Only recalculate when 'number' changes
+  
+  // Changing theme doesn't recalculate Fibonacci
+  return h('div', { class: theme }, [
+    h('input', {
+      type: 'range',
+      min: 1,
+      max: 40,
+      value: number,
+      oninput: (e) => setNumber(parseInt(e.target.value))
+    }, []),
+    h('p', {}, [`Fibonacci(${number}) = ${fibonacci}`]),
+    h('button', { onclick: () => setTheme(theme === 'light' ? 'dark' : 'light') }, [
+      'Toggle Theme'
+    ])
+  ]);
+};
+```
+
+### Filtering and Transforming Data
+
+```javascript
+const UserList = ({ users, searchTerm }) => {
+  // Filtered users are only recalculated when users or searchTerm changes
+  const filteredUsers = useMemo(() => {
+    console.log('Filtering users...');
+    return users.filter(user => 
+      user.name.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+  }, [users, searchTerm]);
+  
+  return h('ul', {}, 
+    filteredUsers.map(user => 
+      h('li', { key: user.id }, [user.name])
+    )
+  );
+};
+```
+
+### Sorting Large Lists
+
+```javascript
+const SortedTable = ({ data, sortKey }) => {
+  const sortedData = useMemo(() => {
+    console.log('Sorting data...');
+    return [...data].sort((a, b) => {
+      if (a[sortKey] < b[sortKey]) return -1;
+      if (a[sortKey] > b[sortKey]) return 1;
+      return 0;
+    });
+  }, [data, sortKey]);
+  
+  return h('table', {}, [
+    h('tbody', {}, 
+      sortedData.map(row => 
+        h('tr', { key: row.id }, [
+          h('td', {}, [row.name]),
+          h('td', {}, [row.value])
+        ])
+      )
+    )
+  ]);
+};
+```
+
+### Maintaining Referential Equality
+
+Objects and arrays created during render are new instances each time. Use `useMemo` to maintain referential equality:
+
+```javascript
+const ParentComponent = () => {
+  const [count, setCount] = useState(0);
+  const [name, setName] = useState('Alice');
+  
+  // Without useMemo, this object would be recreated on every render
+  const config = useMemo(() => {
+    return {
+      name,
+      timestamp: Date.now(),
+      settings: { theme: 'dark' }
+    };
+  }, [name]); // Only recreate when name changes
+  
+  return h('div', {}, [
+    h('p', {}, [`Count: ${count}`]),
+    h('button', { onclick: () => setCount(count + 1) }, ['Increment']),
+    createComponent(ChildComponent, { config })
+  ]);
+};
+```
+
+## Practical Example from Source
+
+Here's a real example from the GlyphUI hooks demo (`examples/hooks-demo/hooks-demo.js:181-236`):
+
+```javascript
+const MemoComponent = () => {
+  const [number, setNumber] = useState(20);
+  
+  // Expensive calculation that's memoized
+  const fibonacci = useMemo(() => {
+    // Use efficient algorithm for larger numbers
+    if (number > 30) {
+      console.log(`Using efficient algorithm for Fibonacci(${number})...`);
+      let a = 1, b = 1;
+      for (let i = 3; i <= number; i++) {
+        const temp = a + b;
+        a = b;
+        b = temp;
+      }
+      return b;
+    }
+    
+    console.log(`Calculating Fibonacci(${number}) recursively...`);
+    
+    // Recursive approach for smaller numbers
+    const fib = (n) => {
+      if (n <= 1) return n;
+      if (n === 2) return 1;
+      return fib(n - 1) + fib(n - 2);
+    };
+    
+    return fib(number);
+  }, [number]); // Only recalculates when number changes
+  
+  return h('div', {}, [
+    h('h2', {}, ['useMemo Demo']),
+    h('p', {}, ['Calculate Fibonacci numbers:']),
+    h('div', {}, [
+      h('input', {
+        type: 'range',
+        min: 1,
+        max: 40,
+        value: number,
+        oninput: (e) => setNumber(parseInt(e.target.value))
+      }, []),
+      h('span', {}, [` n = ${number}`])
+    ]),
+    h('p', {}, [`Fibonacci(${number}) = ${fibonacci}`]),
+    h('p', { style: 'font-size: 0.8em; color: #666;' }, [
+      'Note: The calculation is memoized. Check console to see when it recalculates.'
+    ])
+  ]);
+};
+```
+
+## How It Works
+
+The `useMemo` hook is implemented in `packages/runtime/src/hooks.js:307-371`. Here's what happens:
+
+1. **First Render**: On the initial render, `useMemo` calls the factory function and stores both the result and the dependencies in the component's hooks array.
+
+2. **Subsequent Renders**: On re-renders, `useMemo`:
+   - Retrieves the previous dependencies from the hooks array
+   - Compares each new dependency with the corresponding old dependency using strict equality (`!==`)
+   - If dependencies haven't changed, returns the cached value
+   - If any dependency changed (or if deps is `null`), calls the factory function again and caches the new result
+
+3. **Error Handling**: If the factory function throws an error, it's caught and logged to the console, and the value may be set to `undefined`.
+
+## When to Use useMemo
+
+### Good Use Cases
+
+✅ **Expensive calculations**
+```javascript
+const result = useMemo(() => processLargeDataset(data), [data]);
+```
+
+✅ **Filtering/sorting large lists**
+```javascript
+const filtered = useMemo(() => items.filter(predicate), [items, predicate]);
+```
+
+✅ **Complex transformations**
+```javascript
+const formatted = useMemo(() => formatComplexData(rawData), [rawData]);
+```
+
+✅ **Maintaining referential equality**
+```javascript
+const config = useMemo(() => ({ theme, locale }), [theme, locale]);
+```
+
+### When NOT to Use useMemo
+
+❌ **Simple calculations**
+```javascript
+// Don't do this - the overhead of useMemo is worse than just calculating
+const sum = useMemo(() => a + b, [a, b]); // Overkill!
+
+// Just calculate directly
+const sum = a + b; // Better
+```
+
+❌ **Values used only once**
+```javascript
+// If the value isn't reused, memoization adds unnecessary overhead
+const doubled = useMemo(() => value * 2, [value]);
+```
+
+❌ **Creating functions** (use useCallback instead)
+```javascript
+// ❌ Less clear
+const handleClick = useMemo(() => () => console.log('clicked'), []);
+
+// ✅ Better: use useCallback
+const handleClick = useCallback(() => console.log('clicked'), []);
+```
+
+## Performance Considerations
+
+`useMemo` has a small overhead:
+- Stores the value and dependencies
+- Compares dependencies on each render
+- Manages the memoization cache
+
+Only use `useMemo` when:
+1. The calculation is genuinely expensive
+2. The component re-renders frequently
+3. The dependencies don't change often
+
+If in doubt, measure! Use browser DevTools to profile your component before and after adding `useMemo`.
+
+## Dependency Comparison
+
+Dependencies are compared using strict equality (`!==`):
+
+```javascript
+const [obj, setObj] = useState({ count: 0 });
+
+// ❌ Bad: Object identity changes even if contents are the same
+const processed = useMemo(() => process(obj), [obj]);
+// Recalculates every time obj is replaced, even if obj.count is the same
+
+// ✅ Better: Depend on primitive values
+const processed = useMemo(() => process(obj.count), [obj.count]);
+// Only recalculates when obj.count actually changes
+```
+
+## Related Hooks
+
+- [useCallback](/hooks/use-callback) - Similar to useMemo, but specifically for memoizing functions
+- [useState](/hooks/use-state) - Often provides the dependencies for useMemo
+- [useEffect](/hooks/use-effect) - For side effects (not pure calculations)

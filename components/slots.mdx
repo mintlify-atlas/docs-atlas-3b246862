@@ -1,0 +1,428 @@
+---
+title: "Slots"
+description: "Learn how to use slots for flexible content projection in components"
+---
+
+Slots provide a powerful way to create flexible, reusable components by allowing parent components to inject content into specific areas of a child component. This pattern is inspired by the Web Components specification.
+
+## What Are Slots?
+
+Slots are placeholders in a component's template where parent components can inject their own content. They enable flexible composition without requiring the child component to know the specifics of what content will be rendered.
+
+## Creating Slots
+
+Use `createSlot()` to define a slot in your component:
+
+```javascript
+import { h, createSlot, Component } from "glyphui";
+
+class Card extends Component {
+  render() {
+    return h("div", { class: "card" }, [
+      h("div", { class: "card-body" }, [
+        // Default slot for main content
+        createSlot("default", {}, ["Default card content"])
+      ])
+    ]);
+  }
+}
+```
+
+The second argument to `createSlot()` is props, and the third argument is default content that will be shown if no content is provided.
+
+## Using Components with Slots
+
+When using a component with slots, pass children to fill the default slot:
+
+```javascript
+import { createComponent } from "glyphui";
+
+const app = createComponent(Card, {}, [
+  h("h2", {}, ["My Card"]),
+  h("p", {}, ["This content replaces the default slot"])
+]);
+```
+
+## Named Slots
+
+Components can have multiple named slots for different areas:
+
+```javascript
+class Card extends Component {
+  render() {
+    return h("div", { class: "card" }, [
+      h("div", { class: "card-header" }, [
+        // Named slot for header
+        createSlot("header", {}, ["Default Header"])
+      ]),
+      h("div", { class: "card-body" }, [
+        // Default slot for body content
+        createSlot("default", {}, ["Default body content"])
+      ]),
+      h("div", { class: "card-footer" }, [
+        // Named slot for footer
+        createSlot("footer", {}, ["Default Footer"])
+      ])
+    ]);
+  }
+}
+```
+
+## Providing Named Slot Content
+
+Use `createSlotContent()` to target specific named slots:
+
+```javascript
+import { createComponent, createSlotContent } from "glyphui";
+
+const app = createComponent(Card, {}, [
+  // Content for the header slot
+  createSlotContent("header", [
+    h("h2", {}, ["Custom Header"])
+  ]),
+  
+  // Content for the default slot (body)
+  h("p", {}, ["This goes in the body"]),
+  h("p", {}, ["More body content"]),
+  
+  // Content for the footer slot
+  createSlotContent("footer", [
+    h("button", {}, ["Action Button"])
+  ])
+]);
+```
+
+<Note>
+Content not wrapped in `createSlotContent()` automatically goes into the default slot.
+</Note>
+
+## Complete Slots Example
+
+Here's a complete example showing slots in action:
+
+```javascript
+import {
+  Component,
+  createComponent,
+  createSlot,
+  createSlotContent,
+  h
+} from "glyphui";
+
+// Card component with multiple slots
+class Card extends Component {
+  render() {
+    return h("div", { class: "card" }, [
+      h("div", { class: "card-header" }, [
+        createSlot("header", {}, ["Default Header"])
+      ]),
+      h("div", { class: "card-body" }, [
+        createSlot("default", {}, ["Default card content"])
+      ]),
+      h("div", { class: "card-footer" }, [
+        createSlot("footer", {}, ["Default Footer"])
+      ])
+    ]);
+  }
+}
+
+// Alert component with a single slot
+class Alert extends Component {
+  render(props) {
+    const type = props.type || "info";
+    return h("div", { class: `alert alert-${type}` }, [
+      // Default slot for alert content
+      createSlot()
+    ]);
+  }
+}
+
+// App using components with slots
+class App extends Component {
+  constructor() {
+    super({}, {
+      initialState: { showMore: false }
+    });
+  }
+  
+  toggleShowMore() {
+    this.setState({ showMore: !this.state.showMore });
+  }
+  
+  render(props, state) {
+    return h("div", {}, [
+      // Card with custom header and footer
+      createComponent(Card, {}, [
+        createSlotContent("header", [
+          h("h2", {}, ["Welcome to Slots Demo"])
+        ]),
+        
+        // Default slot content
+        h("p", {}, ["This demonstrates how slots work in GlyphUI."]),
+        h("p", {}, ["Slots allow you to customize specific parts of a component."]),
+        
+        createSlotContent("footer", [
+          h("button", { 
+            on: { click: () => this.toggleShowMore() }
+          }, [
+            state.showMore ? "Show Less" : "Show More"
+          ])
+        ])
+      ]),
+      
+      // Conditional content
+      state.showMore && createComponent(Card, {}, [
+        createSlotContent("header", [
+          h("h3", {}, ["Additional Information"])
+        ]),
+        
+        createComponent(Alert, { type: "info" }, [
+          h("p", {}, ["Slots are inspired by the Web Components specification."]),
+          h("p", {}, ["They provide a flexible way to compose components."])
+        ])
+      ]),
+      
+      // Simple alert usage
+      createComponent(Alert, { type: "warning" }, [
+        h("strong", {}, ["Note: "]),
+        h("span", {}, ["This is an example of an alert with a warning style."])
+      ])
+    ]);
+  }
+}
+```
+
+## How Slots Work Internally
+
+When a component with slots is rendered:
+
+1. **Extraction**: Children are analyzed to identify slot content using `extractSlotContents()`
+2. **Storage**: Slot contents are stored by name in the component instance
+3. **Resolution**: During render, `resolveSlots()` replaces slot placeholders with actual content
+4. **Fallback**: If no content is provided for a slot, the default content is used
+
+```javascript
+// Internal slot processing (from component-factory.js:99-102)
+if (props && props.children && Array.isArray(props.children)) {
+  this.slotContents = extractSlotContents(props.children);
+}
+```
+
+## Default Slot
+
+If you don't specify a slot name, it uses the "default" slot:
+
+```javascript
+// These are equivalent
+createSlot()
+createSlot("default")
+```
+
+Content not wrapped in `createSlotContent()` automatically fills the default slot:
+
+```javascript
+createComponent(Card, {}, [
+  // All of this goes into the default slot
+  h("p", {}, ["Paragraph 1"]),
+  h("p", {}, ["Paragraph 2"])
+]);
+```
+
+## Slots vs. Props
+
+<Tabs>
+  <Tab title="When to Use Slots">
+    - Complex content with markup
+    - Multiple insertion points
+    - Parent controls content structure
+    - Flexible composition
+    
+    ```javascript
+    createComponent(Modal, {}, [
+      createSlotContent("header", [
+        h("h1", {}, ["Title"]),
+        h("button", {}, ["×"])
+      ]),
+      h("p", {}, ["Body content"])
+    ]);
+    ```
+  </Tab>
+  
+  <Tab title="When to Use Props">
+    - Simple data values
+    - Configuration options
+    - Callback functions
+    - Primitive types
+    
+    ```javascript
+    createComponent(Button, {
+      label: "Click Me",
+      variant: "primary",
+      onClick: handleClick,
+      disabled: false
+    });
+    ```
+  </Tab>
+</Tabs>
+
+## Real-World Patterns
+
+### Dialog Component
+
+```javascript
+class Dialog extends Component {
+  render(props) {
+    return h("div", { class: "dialog-overlay" }, [
+      h("div", { class: "dialog" }, [
+        h("div", { class: "dialog-header" }, [
+          createSlot("header", {}, ["Dialog"]),
+          h("button", {
+            class: "close",
+            on: { click: props.onClose }
+          }, ["×"])
+        ]),
+        h("div", { class: "dialog-body" }, [
+          createSlot("default")
+        ]),
+        h("div", { class: "dialog-footer" }, [
+          createSlot("footer")
+        ])
+      ])
+    ]);
+  }
+}
+
+// Usage
+createComponent(Dialog, { onClose: handleClose }, [
+  createSlotContent("header", [
+    h("h2", {}, ["Confirm Action"])
+  ]),
+  h("p", {}, ["Are you sure you want to proceed?"]),
+  createSlotContent("footer", [
+    h("button", { on: { click: handleConfirm } }, ["Confirm"]),
+    h("button", { on: { click: handleClose } }, ["Cancel"])
+  ])
+]);
+```
+
+### Layout Component
+
+```javascript
+class AppLayout extends Component {
+  render() {
+    return h("div", { class: "app-layout" }, [
+      h("aside", { class: "sidebar" }, [
+        createSlot("sidebar", {}, ["Sidebar content"])
+      ]),
+      h("main", { class: "main-content" }, [
+        createSlot("default")
+      ]),
+      h("footer", { class: "footer" }, [
+        createSlot("footer", {}, ["© 2024"])
+      ])
+    ]);
+  }
+}
+```
+
+### Tab Component
+
+```javascript
+class Tabs extends Component {
+  constructor(props) {
+    super(props, {
+      initialState: { activeTab: props.defaultTab || 0 }
+    });
+  }
+  
+  render(props, state) {
+    return h("div", { class: "tabs" }, [
+      h("div", { class: "tab-headers" }, [
+        createSlot("headers")
+      ]),
+      h("div", { class: "tab-content" }, [
+        createSlot("content")
+      ])
+    ]);
+  }
+}
+```
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Provide Default Content">
+    Always provide default content for slots so the component works even when no content is provided.
+    
+    ```javascript
+    createSlot("footer", {}, ["© 2024 Company Name"])
+    ```
+  </Accordion>
+  
+  <Accordion title="Use Named Slots for Clarity">
+    When you have multiple slots, use descriptive names to make it clear where content goes.
+    
+    ```javascript
+    createSlot("header")
+    createSlot("sidebar")
+    createSlot("footer")
+    ```
+  </Accordion>
+  
+  <Accordion title="Document Your Slots">
+    Clearly document what slots your component accepts and what content they expect.
+  </Accordion>
+  
+  <Accordion title="Combine with Props">
+    Use slots for content and props for configuration:
+    
+    ```javascript
+    createComponent(Alert, { type: "warning" }, [
+      h("strong", {}, ["Warning: "]),
+      "This is important!"
+    ])
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## API Reference
+
+### createSlot()
+
+Creates a slot placeholder in a component template.
+
+```javascript
+createSlot(name, props, children)
+```
+
+**Parameters:**
+- `name` (string, optional): The slot name. Defaults to `"default"`.
+- `props` (object, optional): Additional properties for the slot.
+- `children` (array, optional): Default content if no slot content is provided.
+
+**Returns:** A virtual DOM node representing the slot.
+
+### createSlotContent()
+
+Creates content targeted at a specific named slot.
+
+```javascript
+createSlotContent(slotName, children)
+```
+
+**Parameters:**
+- `slotName` (string, optional): The target slot name. Defaults to `"default"`.
+- `children` (array): The content to insert into the slot.
+
+**Returns:** A virtual DOM node with slot targeting information.
+
+## Related
+
+<CardGroup cols={2}>
+  <Card title="Component Composition" icon="layer-group" href="/components/composition">
+    Learn about composing components
+  </Card>
+  <Card title="Functional Components" icon="function" href="/components/functional">
+    Create functional components
+  </Card>
+</CardGroup>

@@ -1,0 +1,357 @@
+---
+title: "Class-Based Components"
+description: "Learn how to create class-based components with state and lifecycle methods"
+---
+
+Class-based components provide a structured way to create components with internal state and lifecycle methods. They extend the `Component` class from GlyphUI.
+
+## Basic Structure
+
+A class component extends `Component` and implements a `render()` method:
+
+```javascript
+import { h, Component } from "glyphui";
+
+class HelloWorld extends Component {
+  constructor(props) {
+    super(props, {
+      initialState: { greeting: "Hello, World!" }
+    });
+  }
+  
+  render(props, state) {
+    return h("div", {}, [
+      h("div", { class: "greeting" }, [state.greeting])
+    ]);
+  }
+}
+```
+
+## Constructor
+
+The constructor receives `props` and passes configuration to the parent class:
+
+```javascript
+class Counter extends Component {
+  constructor(props) {
+    super(props, {
+      initialState: {
+        count: props.initialCount || 0
+      }
+    });
+  }
+}
+```
+
+<Note>
+Always call `super(props, { initialState })` before accessing `this` in the constructor.
+</Note>
+
+## The render() Method
+
+The `render()` method is the only required method. It receives `props`, `state`, and `emit` as arguments:
+
+```javascript
+render(props, state, emit) {
+  return h("div", { class: "counter" }, [
+    h("h2", {}, [props.title || "Counter"]),
+    h("div", { class: "counter-value" }, [state.count.toString()]),
+    h("button", { 
+      on: { click: () => this.increment() } 
+    }, ["Increment"])
+  ]);
+}
+```
+
+## State Management
+
+### Initializing State
+
+Set initial state in the constructor:
+
+```javascript
+constructor(props) {
+  super(props, {
+    initialState: {
+      count: 0,
+      message: "Ready",
+      items: []
+    }
+  });
+}
+```
+
+### Updating State with setState()
+
+Use `this.setState()` to update state and trigger a re-render:
+
+```javascript
+class Counter extends Component {
+  constructor(props) {
+    super(props, {
+      initialState: { count: 0 }
+    });
+  }
+  
+  increment() {
+    this.setState({ count: this.state.count + 1 });
+  }
+  
+  decrement() {
+    this.setState({ count: this.state.count - 1 });
+  }
+  
+  reset() {
+    this.setState({ count: 0 });
+  }
+  
+  render(props, state) {
+    return h("div", {}, [
+      h("p", {}, [`Count: ${state.count}`]),
+      h("button", { on: { click: () => this.increment() } }, ["Increment"]),
+      h("button", { on: { click: () => this.decrement() } }, ["Decrement"]),
+      h("button", { on: { click: () => this.reset() } }, ["Reset"])
+    ]);
+  }
+}
+```
+
+<Warning>
+`setState()` merges the new state with the existing state. Only the properties you pass will be updated.
+</Warning>
+
+### Functional State Updates
+
+`setState()` can also accept a function that receives the previous state:
+
+```javascript
+addTodo() {
+  this.setState((prevState) => ({
+    todos: [...prevState.todos, newTodo],
+    nextId: prevState.nextId + 1
+  }));
+}
+```
+
+## Lifecycle Methods
+
+Class components provide lifecycle methods for different stages of a component's life:
+
+### beforeMount()
+
+Called right before the component is mounted to the DOM:
+
+```javascript
+beforeMount() {
+  console.log("Component is about to mount");
+  // Initialize data or prepare resources
+}
+```
+
+### mounted()
+
+Called after the component has been mounted to the DOM:
+
+```javascript
+class Clock extends Component {
+  constructor(props) {
+    super(props, {
+      initialState: { time: new Date().toLocaleTimeString() }
+    });
+  }
+  
+  mounted() {
+    // Start a timer when component is mounted
+    this.timerID = setInterval(() => {
+      this.setState({ time: new Date().toLocaleTimeString() });
+    }, 1000);
+  }
+  
+  render(props, state) {
+    return h("div", { class: "clock-display" }, [
+      h("span", { class: "time" }, [state.time])
+    ]);
+  }
+}
+```
+
+<Note>
+Use `mounted()` for DOM manipulations, data fetching, or setting up subscriptions.
+</Note>
+
+### beforeUpdate(oldProps, newProps)
+
+Called before the component is re-rendered due to new props:
+
+```javascript
+beforeUpdate(oldProps, newProps) {
+  console.log("Props changed:", oldProps, "->", newProps);
+  // React to prop changes before render
+}
+```
+
+### updated(oldProps, newProps)
+
+Called after the component has been updated:
+
+```javascript
+updated(oldProps, newProps) {
+  if (oldProps.userId !== newProps.userId) {
+    this.fetchUserData(newProps.userId);
+  }
+}
+```
+
+### beforeUnmount()
+
+Called right before the component is unmounted:
+
+```javascript
+beforeUnmount() {
+  // Clean up resources before component is destroyed
+  clearInterval(this.timerID);
+  // Cancel pending requests, remove event listeners, etc.
+}
+```
+
+### unmounted()
+
+Called after the component has been unmounted:
+
+```javascript
+unmounted() {
+  console.log("Component has been removed from the DOM");
+}
+```
+
+## Complete Example
+
+Here's a full example of a Todo application using class-based components:
+
+```javascript
+import { h, Component } from "glyphui";
+
+class TodoApp extends Component {
+  constructor() {
+    super({}, {
+      initialState: {
+        currentTodo: "",
+        nextId: 3,
+        todos: [
+          { id: 0, text: "watch OOP vs FP video" },
+          { id: 1, text: "feed the cat" },
+          { id: 2, text: "publish framework" }
+        ]
+      }
+    });
+  }
+  
+  updateCurrentTodo(currentTodo) {
+    this.setState({ currentTodo });
+  }
+  
+  addTodo() {
+    const newTodo = {
+      id: this.state.nextId,
+      text: this.state.currentTodo
+    };
+    
+    this.setState({
+      currentTodo: "",
+      nextId: this.state.nextId + 1,
+      todos: [...this.state.todos, newTodo]
+    });
+  }
+  
+  removeTodo(id) {
+    this.setState({
+      todos: this.state.todos.filter(todo => todo.id !== id)
+    });
+  }
+  
+  render(props, state) {
+    return h("div", { class: "todo-app" }, [
+      h("input", {
+        type: "text",
+        value: state.currentTodo,
+        on: {
+          input: ({ target }) => this.updateCurrentTodo(target.value),
+          keydown: ({ key }) => {
+            if (key === "Enter" && state.currentTodo.length >= 3) {
+              this.addTodo();
+            }
+          }
+        }
+      }),
+      h("button", {
+        disabled: state.currentTodo.length < 3,
+        on: { click: () => this.addTodo() }
+      }, ["Add"]),
+      h("div", { class: "todo-list" },
+        state.todos.map(todo =>
+          h("div", { key: todo.id, class: "todo-item" }, [
+            h("span", {}, [todo.text]),
+            h("button", {
+              on: { click: () => this.removeTodo(todo.id) }
+            }, ["Done"])
+          ])
+        )
+      )
+    ]);
+  }
+}
+```
+
+## Mounting Components
+
+To mount a class component to the DOM:
+
+```javascript
+const app = new TodoApp();
+app.mount(document.getElementById("app"));
+```
+
+Or use `createComponent()` when nesting components:
+
+```javascript
+import { createComponent } from "glyphui";
+
+render(props, state) {
+  return h("div", {}, [
+    createComponent(Counter, {
+      key: 1,
+      title: "Counter 1",
+      initialCount: 0
+    })
+  ]);
+}
+```
+
+## When to Use Class Components
+
+<CardGroup cols={2}>
+  <Card title="Use Class Components For" icon="check">
+    - Complex state management
+    - Lifecycle method requirements
+    - Object-oriented patterns
+    - Team familiarity with OOP
+  </Card>
+  
+  <Card title="Consider Functional Components If" icon="lightbulb">
+    - Simple presentational UI
+    - Hooks-based state management
+    - Functional programming style
+    - Modern React-like patterns
+  </Card>
+</CardGroup>
+
+## Related
+
+<CardGroup cols={2}>
+  <Card title="Functional Components" icon="function" href="/components/functional">
+    Learn about functional components
+  </Card>
+  <Card title="Component Composition" icon="layer-group" href="/components/composition">
+    Nest and compose components
+  </Card>
+</CardGroup>

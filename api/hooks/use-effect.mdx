@@ -1,0 +1,166 @@
+---
+title: useEffect
+description: Hook for handling side effects in functional components
+---
+
+## Overview
+
+The `useEffect` hook lets you perform side effects in functional components. It runs after the render is committed to the screen.
+
+## Signature
+
+```javascript
+useEffect(effect, deps)
+```
+
+## Parameters
+
+<ParamField path="effect" type="function" required>
+  A function containing the side effect code. This function may optionally return a cleanup function that will be called before the effect runs again or when the component unmounts.
+  
+  **Signature**: `() => void | (() => void)`
+</ParamField>
+
+<ParamField path="deps" type="array">
+  An optional dependency array. The effect only re-runs if one of the dependencies has changed.
+  
+  - **Omit** to run on every render
+  - **Empty array `[]`** to run only once on mount
+  - **Array with values** to run when any value changes
+</ParamField>
+
+## Returns
+
+This hook does not return a value.
+
+## Usage Examples
+
+### Run Once on Mount
+
+```javascript
+import { useEffect } from '@glyphui/runtime';
+
+function DataFetcher() {
+  useEffect(() => {
+    console.log('Component mounted');
+    fetchData();
+  }, []); // Empty deps array = run once
+  
+  return <div>Loading...</div>;
+}
+```
+
+### Run on Dependency Change
+
+```javascript
+import { useState, useEffect } from '@glyphui/runtime';
+
+function UserProfile({ userId }) {
+  const [user, setUser] = useState(null);
+  
+  useEffect(() => {
+    fetchUser(userId).then(setUser);
+  }, [userId]); // Re-run when userId changes
+  
+  return <div>{user?.name}</div>;
+}
+```
+
+### Cleanup Function
+
+Return a cleanup function to clean up subscriptions, timers, or event listeners:
+
+```javascript
+function Timer() {
+  const [seconds, setSeconds] = useState(0);
+  
+  useEffect(() => {
+    const intervalId = setInterval(() => {
+      setSeconds(s => s + 1);
+    }, 1000);
+    
+    // Cleanup: clear interval when component unmounts
+    return () => {
+      clearInterval(intervalId);
+    };
+  }, []);
+  
+  return <div>Seconds: {seconds}</div>;
+}
+```
+
+### Event Listeners
+
+```javascript
+function WindowSize() {
+  const [size, setSize] = useState({ width: 0, height: 0 });
+  
+  useEffect(() => {
+    const handleResize = () => {
+      setSize({
+        width: window.innerWidth,
+        height: window.innerHeight
+      });
+    };
+    
+    window.addEventListener('resize', handleResize);
+    handleResize(); // Set initial size
+    
+    // Cleanup: remove listener
+    return () => {
+      window.removeEventListener('resize', handleResize);
+    };
+  }, []);
+  
+  return <div>{size.width} x {size.height}</div>;
+}
+```
+
+### Multiple Effects
+
+Separate different concerns into multiple effects:
+
+```javascript
+function Dashboard({ userId }) {
+  const [user, setUser] = useState(null);
+  const [stats, setStats] = useState(null);
+  
+  // Effect for user data
+  useEffect(() => {
+    fetchUser(userId).then(setUser);
+  }, [userId]);
+  
+  // Effect for stats (separate concern)
+  useEffect(() => {
+    fetchStats(userId).then(setStats);
+  }, [userId]);
+  
+  return <div>{/* ... */}</div>;
+}
+```
+
+## Rules and Behavior
+
+1. **Runs after render** - Effects are scheduled to run asynchronously after the browser has painted
+2. **Cleanup runs before next effect** - If an effect returns a cleanup function, it runs before the next effect executes
+3. **Cleanup on unmount** - All cleanup functions run when the component unmounts
+4. **Dependency comparison** - Uses strict equality (`!==`) to compare each dependency
+5. **Must be called at top level** - Don't call `useEffect` inside loops, conditions, or nested functions
+6. **Only in functional components** - Cannot be used in class components
+
+## Dependency Array Behavior
+
+| Dependencies | When Effect Runs |
+|--------------|------------------|
+| Not provided | Every render |
+| `[]` | Once on mount only |
+| `[a, b]` | When `a` or `b` changes |
+
+## Implementation Details
+
+- Effects run asynchronously via `setTimeout(..., 0)` after render
+- Dependencies are compared using strict equality (`!==`)
+- Cleanup functions are stored per component instance and hook index
+- Skips effect execution if dependencies haven't changed
+- Errors in effects are caught and logged to prevent crashes
+- Checks if component is mounted before running effects

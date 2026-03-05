@@ -1,0 +1,436 @@
+---
+title: "Component Composition"
+description: "Learn how to nest and compose components together in GlyphUI"
+---
+
+Component composition is the practice of building complex UIs by combining simpler components together. GlyphUI makes it easy to nest components and pass data between them.
+
+## Creating Child Components
+
+Use `createComponent()` to include one component inside another:
+
+```javascript
+import { h, createComponent, Component } from "glyphui";
+
+class App extends Component {
+  render() {
+    return h("div", {}, [
+      h("h1", {}, ["My App"]),
+      createComponent(Counter, { initialCount: 0 })
+    ]);
+  }
+}
+```
+
+## Passing Props
+
+Props flow from parent to child components:
+
+```javascript
+// Child component
+const UserCard = (props) => {
+  return h("div", { class: "card" }, [
+    h("h2", {}, [props.name]),
+    h("p", {}, [props.email]),
+    h("span", {}, [props.role])
+  ]);
+};
+
+// Parent component
+class UserList extends Component {
+  render(props, state) {
+    return h("div", {}, [
+      createComponent(UserCard, {
+        name: "Alice Smith",
+        email: "alice@example.com",
+        role: "Developer"
+      })
+    ]);
+  }
+}
+```
+
+## Passing Children
+
+Components can accept children through `props.children`:
+
+```javascript
+// Container component that wraps children
+const Card = (props) => {
+  return h("div", { class: "card" }, [
+    h("div", { class: "card-body" }, [
+      ...props.children  // Spread children here
+    ])
+  ]);
+};
+
+// Using the container
+const app = createComponent(Card, {}, [
+  h("h2", {}, ["Card Title"]),
+  h("p", {}, ["Card content goes here"])
+]);
+```
+
+<Note>
+Children are automatically available in `props.children` as an array.
+</Note>
+
+## List Rendering
+
+Render multiple components from an array using `map()`:
+
+```javascript
+class CounterContainer extends Component {
+  constructor() {
+    super({}, {
+      initialState: {
+        counters: [
+          { id: 1, title: "Counter 1", initialCount: 0 },
+          { id: 2, title: "Counter 2", initialCount: 10 },
+          { id: 3, title: "Counter 3", initialCount: 5 }
+        ]
+      }
+    });
+  }
+  
+  render(props, state) {
+    return h("div", {}, [
+      h("h2", {}, ["Counter Container"]),
+      
+      // Map over the array to create multiple Counter components
+      ...state.counters.map(counter =>
+        createComponent(Counter, {
+          key: counter.id,  // Important: add a key for list items
+          title: counter.title,
+          initialCount: counter.initialCount
+        })
+      )
+    ]);
+  }
+}
+```
+
+<Warning>
+Always provide a unique `key` prop when rendering lists of components. This helps GlyphUI efficiently update the DOM.
+</Warning>
+
+## Callback Props
+
+Pass functions from parent to child to handle events:
+
+```javascript
+// Child component
+const TodoItem = (props) => {
+  return h("div", { class: "todo-item" }, [
+    h("span", {}, [props.text]),
+    h("button", {
+      on: { click: () => props.onDelete(props.id) }
+    }, ["Delete"])
+  ]);
+};
+
+// Parent component
+class TodoList extends Component {
+  constructor() {
+    super({}, {
+      initialState: {
+        todos: [
+          { id: 1, text: "Learn GlyphUI" },
+          { id: 2, text: "Build an app" }
+        ]
+      }
+    });
+  }
+  
+  deleteTodo(id) {
+    this.setState({
+      todos: this.state.todos.filter(todo => todo.id !== id)
+    });
+  }
+  
+  render(props, state) {
+    return h("div", {}, [
+      ...state.todos.map(todo =>
+        createComponent(TodoItem, {
+          key: todo.id,
+          id: todo.id,
+          text: todo.text,
+          onDelete: (id) => this.deleteTodo(id)  // Pass callback
+        })
+      )
+    ]);
+  }
+}
+```
+
+## Nesting Multiple Levels
+
+Components can be nested to any depth:
+
+```javascript
+// Button component
+const Button = (props) => {
+  return h("button", {
+    class: props.variant || "primary",
+    on: { click: props.onClick }
+  }, [props.label]);
+};
+
+// Counter component (uses Button)
+class Counter extends Component {
+  constructor(props) {
+    super(props, {
+      initialState: { count: props.initialCount || 0 }
+    });
+  }
+  
+  increment() {
+    this.setState({ count: this.state.count + 1 });
+  }
+  
+  render(props, state) {
+    return h("div", { class: "counter" }, [
+      h("div", {}, [state.count.toString()]),
+      createComponent(Button, {
+        label: "Increment",
+        variant: "primary",
+        onClick: () => this.increment()
+      })
+    ]);
+  }
+}
+
+// Container component (uses Counter)
+class App extends Component {
+  render() {
+    return h("div", { class: "app" }, [
+      h("h1", {}, ["My Counter App"]),
+      createComponent(Counter, { initialCount: 0 })
+    ]);
+  }
+}
+```
+
+## Composition Patterns
+
+### Container/Presentational Pattern
+
+Separate logic (container) from presentation (presentational):
+
+```javascript
+// Presentational: only receives props and renders UI
+const CounterDisplay = (props) => {
+  return h("div", { class: "counter" }, [
+    h("div", { class: "counter-value" }, [props.count.toString()]),
+    h("button", { on: { click: props.onIncrement } }, ["Increment"]),
+    h("button", { on: { click: props.onDecrement } }, ["Decrement"])
+  ]);
+};
+
+// Container: manages state and logic
+class CounterContainer extends Component {
+  constructor(props) {
+    super(props, {
+      initialState: { count: 0 }
+    });
+  }
+  
+  increment() {
+    this.setState({ count: this.state.count + 1 });
+  }
+  
+  decrement() {
+    this.setState({ count: this.state.count - 1 });
+  }
+  
+  render(props, state) {
+    return createComponent(CounterDisplay, {
+      count: state.count,
+      onIncrement: () => this.increment(),
+      onDecrement: () => this.decrement()
+    });
+  }
+}
+```
+
+### Layout Components
+
+Create reusable layout wrappers:
+
+```javascript
+// Layout component
+const PageLayout = (props) => {
+  return h("div", { class: "page" }, [
+    h("header", { class: "header" }, [props.header]),
+    h("main", { class: "main" }, props.children),
+    h("footer", { class: "footer" }, [props.footer || "© 2024"])
+  ]);
+};
+
+// Using the layout
+const app = createComponent(PageLayout, {
+  header: h("h1", {}, ["My App"])
+}, [
+  h("p", {}, ["Main content here"]),
+  h("p", {}, ["More content"])
+]);
+```
+
+### Conditional Rendering
+
+Conditionally include components based on state:
+
+```javascript
+class App extends Component {
+  constructor() {
+    super({}, {
+      initialState: { showDetails: false }
+    });
+  }
+  
+  toggleDetails() {
+    this.setState({ showDetails: !this.state.showDetails });
+  }
+  
+  render(props, state) {
+    return h("div", {}, [
+      h("button", {
+        on: { click: () => this.toggleDetails() }
+      }, [state.showDetails ? "Hide" : "Show"]),
+      
+      // Conditionally render component
+      state.showDetails && createComponent(DetailPanel, {})
+    ]);
+  }
+}
+```
+
+## Fragments
+
+Use `hFragment()` to group elements without adding extra DOM nodes:
+
+```javascript
+import { hFragment } from "glyphui";
+
+const List = (props) => {
+  return hFragment([
+    h("li", {}, ["Item 1"]),
+    h("li", {}, ["Item 2"]),
+    h("li", {}, ["Item 3"])
+  ]);
+};
+```
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Keep Components Focused">
+    Each component should do one thing well. If a component is getting too complex, split it into smaller components.
+  </Accordion>
+  
+  <Accordion title="Use Props for Configuration">
+    Make components reusable by accepting configuration through props instead of hardcoding values.
+  </Accordion>
+  
+  <Accordion title="Lift State Up">
+    When multiple components need to share state, move the state to their closest common ancestor.
+  </Accordion>
+  
+  <Accordion title="Always Use Keys in Lists">
+    When rendering lists, always provide a unique `key` prop to help GlyphUI efficiently update the DOM.
+  </Accordion>
+</AccordionGroup>
+
+## Complete Example
+
+Here's a complete example showing composition in action:
+
+```javascript
+import { h, Component, createComponent } from "glyphui";
+
+// Button component
+const Button = (props) => {
+  return h("button", {
+    class: `btn btn-${props.variant || "primary"}`,
+    on: { click: props.onClick },
+    disabled: props.disabled
+  }, [props.children || props.label]);
+};
+
+// Alert component
+const Alert = (props) => {
+  return h("div", { class: `alert alert-${props.type || "info"}` }, [
+    ...props.children
+  ]);
+};
+
+// Counter component
+class Counter extends Component {
+  constructor(props) {
+    super(props, {
+      initialState: { count: props.initialCount || 0 }
+    });
+  }
+  
+  increment() {
+    this.setState({ count: this.state.count + 1 });
+  }
+  
+  reset() {
+    this.setState({ count: 0 });
+  }
+  
+  render(props, state) {
+    return h("div", { class: "counter" }, [
+      h("h3", {}, [props.title]),
+      h("div", { class: "count" }, [state.count.toString()]),
+      createComponent(Button, {
+        label: "Increment",
+        variant: "primary",
+        onClick: () => this.increment()
+      }),
+      createComponent(Button, {
+        label: "Reset",
+        variant: "secondary",
+        onClick: () => this.reset(),
+        disabled: state.count === 0
+      }),
+      state.count > 10 && createComponent(Alert, { type: "warning" }, [
+        h("strong", {}, ["Warning: "]),
+        "Count is getting high!"
+      ])
+    ]);
+  }
+}
+
+// App component
+class App extends Component {
+  render() {
+    return h("div", { class: "app" }, [
+      h("h1", {}, ["Counter Demo"]),
+      createComponent(Counter, {
+        title: "Counter 1",
+        initialCount: 0
+      }),
+      createComponent(Counter, {
+        title: "Counter 2",
+        initialCount: 5
+      })
+    ]);
+  }
+}
+```
+
+## Related
+
+<CardGroup cols={3}>
+  <Card title="Functional Components" icon="function" href="/components/functional">
+    Learn about functional components
+  </Card>
+  <Card title="Class Components" icon="code" href="/components/class-based">
+    Learn about class-based components
+  </Card>
+  <Card title="Slots" icon="puzzle-piece" href="/components/slots">
+    Advanced content projection with slots
+  </Card>
+</CardGroup>

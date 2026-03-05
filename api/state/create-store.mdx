@@ -1,0 +1,217 @@
+---
+title: "createStore"
+description: "Creates a new store with state and actions for global state management"
+---
+
+## Overview
+
+The `createStore` function creates a minimal, reactive store for managing global application state. It provides a simple API for getting and setting state, subscribing to changes, and cleaning up resources.
+
+Inspired by Zustand's approach, `createStore` offers a lightweight alternative to Redux with minimal boilerplate.
+
+## Signature
+
+```javascript
+function createStore(createState)
+```
+
+<ParamField path="createState" type="function" required>
+  A function that receives `setState` and `getState` as arguments and returns the initial state object (optionally with action methods).
+  
+  **Function Signature:**
+  ```javascript
+  (setState, getState) => initialState
+  ```
+  
+  - `setState(partial, replace)` - Function to update the state
+  - `getState()` - Function to get the current state
+  - Returns an object representing the initial state
+</ParamField>
+
+## Return Value
+
+Returns a store object with the following methods:
+
+<ResponseField name="getState" type="function">
+  Returns the current state object.
+  
+  ```javascript
+  const currentState = store.getState();
+  ```
+</ResponseField>
+
+<ResponseField name="setState" type="function">
+  Updates the state. Can accept an object or a function.
+  
+  **Signature:** `setState(partial, replace)`
+  
+  - `partial` - Object with state updates, or a function `(state) => updates`
+  - `replace` - Boolean. If `true`, replaces entire state. If `false` (default), merges with existing state.
+  
+  ```javascript
+  // Merge update
+  store.setState({ count: 5 });
+  
+  // Function update
+  store.setState(state => ({ count: state.count + 1 }));
+  
+  // Replace entire state
+  store.setState({ count: 0 }, true);
+  ```
+  
+  **Note:** State updates are skipped if the next state is identical to the current state (using `Object.is`).
+</ResponseField>
+
+<ResponseField name="subscribe" type="function">
+  Subscribes to state changes. Returns an unsubscribe function.
+  
+  **Signature:** `subscribe(listener)`
+  
+  - `listener` - Function called with the new state whenever it changes
+  
+  ```javascript
+  const unsubscribe = store.subscribe(state => {
+    console.log('State changed:', state);
+  });
+  
+  // Later: clean up
+  unsubscribe();
+  ```
+</ResponseField>
+
+<ResponseField name="destroy" type="function">
+  Cleans up the store by removing all listeners.
+  
+  ```javascript
+  store.destroy();
+  ```
+</ResponseField>
+
+## Examples
+
+### Basic Counter Store
+
+```javascript
+import { createStore } from '@glyphui/runtime';
+
+const counterStore = createStore((setState, getState) => ({
+  count: 0,
+  increment: () => {
+    const state = getState();
+    setState({ count: state.count + 1 });
+  },
+  decrement: () => {
+    const state = getState();
+    setState({ count: state.count - 1 });
+  },
+  reset: () => setState({ count: 0 })
+}));
+
+// Use the store
+counterStore.getState().increment();
+console.log(counterStore.getState().count); // 1
+```
+
+### Store with Complex State
+
+```javascript
+const todoStore = createStore((setState, getState) => ({
+  todos: [],
+  filter: 'all',
+  
+  addTodo: (text) => {
+    const state = getState();
+    setState({
+      todos: [...state.todos, { id: Date.now(), text, completed: false }]
+    });
+  },
+  
+  toggleTodo: (id) => {
+    const state = getState();
+    setState({
+      todos: state.todos.map(todo =>
+        todo.id === id ? { ...todo, completed: !todo.completed } : todo
+      )
+    });
+  },
+  
+  setFilter: (filter) => setState({ filter })
+}));
+```
+
+### Subscribing to Changes
+
+```javascript
+const userStore = createStore((setState) => ({
+  user: null,
+  isLoading: false,
+  
+  login: async (credentials) => {
+    setState({ isLoading: true });
+    const user = await api.login(credentials);
+    setState({ user, isLoading: false });
+  }
+}));
+
+// Subscribe to state changes
+const unsubscribe = userStore.subscribe(state => {
+  console.log('User:', state.user);
+  console.log('Loading:', state.isLoading);
+});
+
+// Clean up when done
+unsubscribe();
+```
+
+## State Update Behavior
+
+### Merge vs Replace
+
+By default, `setState` merges updates with the existing state:
+
+```javascript
+const store = createStore(() => ({ a: 1, b: 2 }));
+
+store.setState({ b: 3 });
+console.log(store.getState()); // { a: 1, b: 3 }
+```
+
+Use the `replace` parameter to replace the entire state:
+
+```javascript
+store.setState({ c: 4 }, true);
+console.log(store.getState()); // { c: 4 }
+```
+
+### Function Updates
+
+Use a function when the new state depends on the current state:
+
+```javascript
+store.setState(state => ({
+  count: state.count + 1
+}));
+```
+
+## Best Practices
+
+<Card title="Keep Actions in the Store" icon="check">
+  Define action methods directly in the initial state object for better encapsulation and easier testing.
+</Card>
+
+<Card title="Use Selectors with connect" icon="filter">
+  When connecting to components, use selector functions to only pass the needed state, optimizing re-renders.
+</Card>
+
+<Card title="Clean Up Subscriptions" icon="broom">
+  Always call the unsubscribe function returned by `subscribe()` to prevent memory leaks.
+</Card>
+
+<Card title="Destroy Stores" icon="trash">
+  Call `store.destroy()` when a store is no longer needed to clean up all listeners.
+</Card>
+
+## See Also
+
+- [connect](/api/state/connect) - Connect a store to GlyphUI components
+- [createActions](/api/state/create-actions) - Create bound action creators for a store

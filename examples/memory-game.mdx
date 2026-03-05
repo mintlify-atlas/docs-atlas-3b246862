@@ -1,0 +1,430 @@
+---
+title: 'Memory Game'
+description: 'A card matching game with animations and component patterns'
+icon: 'brain'
+---
+
+## Overview
+
+The Memory Game demonstrates:
+- Card flip animations with CSS
+- Array shuffling algorithms
+- Async state updates with setTimeout
+- Preventing invalid interactions
+- Win condition detection
+
+<Card title="Live Demo" icon="play" href="https://github.com/x0bd/glyphui/tree/main/examples/memory-game">
+  View the complete source code on GitHub
+</Card>
+
+## What You'll Learn
+
+<CardGroup cols={2}>
+  <Card title="Animations" icon="wand-magic-sparkles">
+    CSS transforms and transitions
+  </Card>
+  <Card title="Async Logic" icon="clock">
+    Handling delayed state updates
+  </Card>
+  <Card title="Input Prevention" icon="ban">
+    Blocking clicks during processing
+  </Card>
+  <Card title="Game Patterns" icon="gamepad">
+    Common game development patterns
+  </Card>
+</CardGroup>
+
+## Complete Code
+
+### Game Component
+
+```javascript game.js
+import { Component, h } from "@glyphui/runtime";
+
+const SYMBOLS = ["🚀", "🌟", "🌈", "🎮", "🔮", "🎨", "🍕", "🌮"];
+
+function createDeck() {
+  const deck = [...SYMBOLS, ...SYMBOLS];
+  // Simple shuffle algorithm
+  for (let i = deck.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [deck[i], deck[j]] = [deck[j], deck[i]];
+  }
+  return deck;
+}
+
+class MemoryGame extends Component {
+  constructor() {
+    super(
+      {},
+      {
+        initialState: {
+          deck: createDeck(),
+          flippedIndices: [],
+          matchedSymbols: [],
+          moves: 0,
+          isChecking: false, // Prevent clicks during match check
+        },
+      }
+    );
+    this.handleCardClick = this.handleCardClick.bind(this);
+  }
+
+  handleCardClick(index) {
+    const { flippedIndices, deck, matchedSymbols, isChecking } = this.state;
+    const symbol = deck[index];
+
+    if (
+      isChecking ||
+      flippedIndices.includes(index) ||
+      matchedSymbols.includes(symbol)
+    ) {
+      return; // Ignore invalid clicks
+    }
+
+    const newFlippedIndices = [...flippedIndices, index];
+    this.setState({ flippedIndices: newFlippedIndices });
+
+    if (newFlippedIndices.length === 2) {
+      this.setState({ isChecking: true });
+      setTimeout(() => this.checkForMatch(), 1000);
+    }
+  }
+
+  checkForMatch() {
+    const { flippedIndices, deck, matchedSymbols, moves } = this.state;
+    const [index1, index2] = flippedIndices;
+    const symbol1 = deck[index1];
+    const symbol2 = deck[index2];
+
+    const newMatchedSymbols = [...matchedSymbols];
+    if (symbol1 === symbol2) {
+      newMatchedSymbols.push(symbol1);
+    }
+
+    this.setState({
+      flippedIndices: [],
+      matchedSymbols: newMatchedSymbols,
+      moves: moves + 1,
+      isChecking: false,
+    });
+  }
+
+  render(props, state) {
+    const { deck, flippedIndices, matchedSymbols, moves } = state;
+    const isGameWon = matchedSymbols.length === SYMBOLS.length;
+
+    return h("div", { class: "game-container" }, [
+      h("div", { class: "info" }, [`Moves: ${moves}`]),
+      h(
+        "div",
+        { class: "board" },
+        deck.map((symbol, index) => {
+          const isFlipped = flippedIndices.includes(index);
+          const isMatched = matchedSymbols.includes(symbol);
+
+          let cardClass = "card";
+          if (isFlipped || isMatched) {
+            cardClass += " flipped";
+          }
+          if (isMatched) {
+            cardClass += " matched";
+          }
+
+          return h(
+            "div",
+            {
+              class: cardClass,
+              key: index,
+              on: {
+                click: () => this.handleCardClick(index),
+              },
+            },
+            [h("span", { class: "content" }, [symbol])]
+          );
+        })
+      ),
+      isGameWon &&
+        h("div", { class: "win-message" }, [
+          "Congratulations, You Win!",
+        ]),
+    ]);
+  }
+}
+
+const app = new MemoryGame();
+app.mount(document.getElementById("app"));
+```
+
+### Styling
+
+```css styles.css
+.board {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  width: 100%;
+  max-width: 440px;
+  margin: 0 auto;
+}
+
+.card {
+  width: 100px;
+  height: 140px;
+  background-color: #7b8cde;
+  border-radius: 8px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.5s, background-color 0.3s;
+  transform-style: preserve-3d;
+}
+
+.card .content {
+  display: none;
+  font-size: 40px;
+  transform: rotateY(180deg);
+}
+
+.card.flipped {
+  background-color: #ffffff;
+  transform: rotateY(180deg);
+}
+
+.card.flipped .content {
+  display: block;
+}
+
+.card.matched {
+  background-color: #a8d5ba;
+  transform: rotateY(180deg);
+  cursor: default;
+}
+
+.card.matched .content {
+  display: block;
+}
+```
+
+## Key Concepts
+
+### 1. Array Shuffling
+
+Fisher-Yates shuffle algorithm:
+
+```javascript
+function createDeck() {
+  const deck = [...SYMBOLS, ...SYMBOLS]; // Duplicate symbols
+  
+  // Shuffle
+  for (let i = deck.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [deck[i], deck[j]] = [deck[j], deck[i]]; // Swap
+  }
+  
+  return deck;
+}
+```
+
+<Note>
+  Fisher-Yates produces an unbiased shuffle, ensuring every permutation is equally likely.
+</Note>
+
+### 2. Delayed State Updates
+
+Use setTimeout to delay checking for matches:
+
+```javascript
+if (newFlippedIndices.length === 2) {
+  this.setState({ isChecking: true }); // Block new clicks
+  setTimeout(() => this.checkForMatch(), 1000); // Wait 1 second
+}
+```
+
+This gives players time to see the second card before it flips back.
+
+### 3. Input Prevention
+
+Block clicks during certain states:
+
+```javascript
+handleCardClick(index) {
+  const { isChecking, flippedIndices, matchedSymbols, deck } = this.state;
+  const symbol = deck[index];
+  
+  // Ignore clicks if:
+  if (
+    isChecking ||                        // Checking for match
+    flippedIndices.includes(index) ||    // Already flipped
+    matchedSymbols.includes(symbol)      // Already matched
+  ) {
+    return;
+  }
+  
+  // Process click...
+}
+```
+
+### 4. CSS Transform Animations
+
+Use `transform: rotateY()` for 3D flip effect:
+
+```css
+.card {
+  transition: transform 0.5s;
+  transform-style: preserve-3d;
+}
+
+.card.flipped {
+  transform: rotateY(180deg);
+}
+
+.card .content {
+  transform: rotateY(180deg); /* Pre-flip content */
+}
+```
+
+## Game Flow
+
+<Steps>
+  <Step title="Initialize">
+    Create deck with pairs of symbols and shuffle
+  </Step>
+  
+  <Step title="First Click">
+    Player clicks card, it flips to reveal symbol
+  </Step>
+  
+  <Step title="Second Click">
+    Player clicks another card, both stay flipped
+  </Step>
+  
+  <Step title="Match Check">
+    After 1 second delay, check if symbols match
+  </Step>
+  
+  <Step title="Update State">
+    If match: keep flipped. If no match: flip back
+  </Step>
+  
+  <Step title="Win Detection">
+    When all pairs matched, show win message
+  </Step>
+</Steps>
+
+## Features Demonstrated
+
+<AccordionGroup>
+  <Accordion title="State Management">
+    - Multiple state properties for game status
+    - Temporary state (flippedIndices)
+    - Permanent state (matchedSymbols)
+    - Blocking state (isChecking)
+  </Accordion>
+  
+  <Accordion title="User Interactions">
+    - Click handlers with validation
+    - Preventing invalid actions
+    - Delayed feedback
+    - Visual state indicators
+  </Accordion>
+  
+  <Accordion title="Algorithms">
+    - Fisher-Yates shuffle
+    - Match detection
+    - Win condition checking
+    - Move counting
+  </Accordion>
+  
+  <Accordion title="CSS Techniques">
+    - 3D transforms
+    - Transitions
+    - Grid layout
+    - Dynamic classes
+  </Accordion>
+</AccordionGroup>
+
+## Running the Example
+
+<Steps>
+  <Step title="Clone the repository">
+    ```bash
+    git clone https://github.com/x0bd/glyphui.git
+    cd glyphui/examples/memory-game
+    ```
+  </Step>
+  
+  <Step title="Open in browser">
+    Open `index.html` in your browser:
+    ```bash
+    npx serve .
+    ```
+  </Step>
+  
+  <Step title="Play the game">
+    - Click cards to reveal symbols
+    - Try to match pairs
+    - Complete all pairs to win
+    - Track your moves
+  </Step>
+</Steps>
+
+## Enhancements to Try
+
+<CardGroup cols={2}>
+  <Card title="Difficulty Levels" icon="sliders">
+    Add easy/medium/hard with different grid sizes
+  </Card>
+  <Card title="Timer" icon="stopwatch">
+    Track time to complete
+  </Card>
+  <Card title="High Scores" icon="trophy">
+    Save best scores to localStorage
+  </Card>
+  <Card title="Sound Effects" icon="volume-high">
+    Add audio feedback
+  </Card>
+</CardGroup>
+
+## Best Practices
+
+<Tip>
+  Always bind event handlers in the constructor to maintain correct `this` context:
+  
+  ```javascript
+  constructor() {
+    super(...);
+    this.handleCardClick = this.handleCardClick.bind(this);
+  }
+  ```
+</Tip>
+
+<Warning>
+  Clean up any pending timeouts when component unmounts to prevent memory leaks:
+  
+  ```javascript
+  beforeUnmount() {
+    if (this.matchTimeout) {
+      clearTimeout(this.matchTimeout);
+    }
+  }
+  ```
+</Warning>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Counter" icon="plus-minus" href="/examples/counter">
+    Start with the basics
+  </Card>
+  <Card title="Animations" icon="wand-magic-sparkles" href="/advanced/performance">
+    Learn animation techniques
+  </Card>
+  <Card title="Component Patterns" icon="shapes" href="/components/composition">
+    Common component patterns
+  </Card>
+  <Card title="Performance" icon="gauge" href="/advanced/performance">
+    Optimize your games
+  </Card>
+</CardGroup>

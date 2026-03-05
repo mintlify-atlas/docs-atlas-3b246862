@@ -1,0 +1,155 @@
+---
+title: Installation
+description: Get GlyphUI set up on your machine and start building
+---
+
+GlyphUI is currently available as a local build. There is no npm package yet, so you'll need to clone the repository and build it yourself.
+
+## Prerequisites
+
+Make sure you have the following installed:
+- Node.js (v14 or higher)
+- npm (comes with Node.js)
+- Git
+
+## Installation Steps
+
+<Steps>
+  <Step title="Clone the repository">
+    Clone the GlyphUI repository to your local machine:
+    
+    ```bash
+    git clone https://github.com/yourusername/glyphui.git
+    cd glyphui
+    ```
+    
+    <Note>
+      Replace `yourusername` with the actual repository owner's username when the official repository is available.
+    </Note>
+  </Step>
+
+  <Step title="Install dependencies">
+    Install all dependencies from the project root:
+    
+    ```bash
+    npm install
+    ```
+    
+    This installs dependencies for the root workspace and all packages, including the runtime package.
+  </Step>
+
+  <Step title="Build the runtime">
+    Navigate to the runtime package and build it:
+    
+    ```bash
+    cd packages/runtime
+    npm run build
+    ```
+    
+    This creates the compiled framework file at `packages/runtime/dist/glyphui.js`.
+  </Step>
+
+  <Step title="Verify installation">
+    You can verify the build was successful by checking for the output file:
+    
+    ```bash
+    ls packages/runtime/dist/glyphui.js
+    ```
+    
+    If the file exists, you're ready to start building with GlyphUI!
+  </Step>
+</Steps>
+
+## Project Structure
+
+After installation, your project structure will look like this:
+
+```
+glyphui/
+├── examples/               # Example applications
+│   ├── counter/
+│   ├── hello-world/
+│   ├── lazy-loading/
+│   ├── vercel-todo/
+│   └── ...
+├── packages/
+│   └── runtime/            # Core framework code
+│       ├── src/            # Source files
+│       └── dist/           # Built distribution (glyphui.js)
+├── package.json            # Root workspace configuration
+└── README.md
+```
+
+## Using GlyphUI in Your Project
+
+Once built, you can import GlyphUI functions and classes in your JavaScript files:
+
+```javascript
+import {
+  Component,
+  h,
+  hFragment,
+  mount,
+  lazy,
+  Suspense,
+  createStore,
+  connect,
+} from "./packages/runtime/dist/glyphui.js";
+```
+
+<Tip>
+  The import path is relative to your project root. Adjust it based on where your files are located relative to the GlyphUI installation.
+</Tip>
+
+## Running Examples
+
+To explore the included examples:
+
+<Steps>
+  <Step title="Start the development server">
+    From the project root, run:
+    
+    ```bash
+    npm run serve:examples
+    ```
+    
+    Or use http-server directly:
+    
+    ```bash
+    npx http-server . -c-1
+    ```
+  </Step>
+
+  <Step title="Open examples in browser">
+    Navigate to the examples in your browser:
+    
+    - Counter: `http://localhost:8080/examples/counter/counter.html`
+    - Hello World: `http://localhost:8080/examples/hello-world/hello.html`
+    - Todo App: `http://localhost:8080/examples/vercel-todo/index.html`
+    
+    Or browse all examples at: `http://localhost:8080/examples/`
+  </Step>
+</Steps>
+
+## Development Workflow
+
+When developing with GlyphUI:
+
+1. **Make changes** to the runtime source in `packages/runtime/src/`
+2. **Rebuild** the framework: `cd packages/runtime && npm run build`
+3. **Refresh** your browser to see changes
+
+<Warning>
+  Remember to rebuild the runtime after making any changes to the framework source code. Changes won't be reflected until you run `npm run build` in the runtime package.
+</Warning>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Quickstart" icon="rocket" href="/quickstart">
+    Build your first GlyphUI app in minutes
+  </Card>
+  <Card title="Core Concepts" icon="book" href="/concepts/virtual-dom">
+    Learn the fundamentals of GlyphUI
+  </Card>
+</CardGroup>

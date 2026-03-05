@@ -1,0 +1,141 @@
+---
+title: 'lazy()'
+description: 'Create lazy-loaded components with dynamic imports'
+---
+
+## Overview
+
+The `lazy()` function creates components that are loaded dynamically on demand, reducing initial bundle size and improving performance.
+
+## Signature
+
+```javascript
+function lazy(loader, options)
+```
+
+<ParamField path="loader" type="Function" required>
+  A function that returns a Promise resolving to a Component class. Typically used with dynamic `import()`.
+</ParamField>
+
+<ParamField path="options" type="Object">
+  Configuration options for the lazy component.
+  
+  <ParamField path="options.loading" type="Function | Object">
+    Loading component or virtual DOM to show while loading. Defaults to a "Loading..." message.
+  </ParamField>
+  
+  <ParamField path="options.error" type="Function | Object">
+    Error component or virtual DOM to show on load failure. Receives `{ error }` prop. Defaults to a red error message display.
+  </ParamField>
+</ParamField>
+
+<ResponseField name="return" type="Function">
+  A factory function that creates the lazy component with the given props.
+</ResponseField>
+
+## Usage
+
+### Basic Lazy Loading
+
+```javascript
+import { lazy } from 'glyphui';
+
+// Create a lazy component
+const LazyDashboard = lazy(() => import('./Dashboard.js'));
+
+// Use it in your app
+function App() {
+  return h('div', {}, [
+    h('h1', {}, ['My App']),
+    LazyDashboard()
+  ]);
+}
+```
+
+### Custom Loading State
+
+```javascript
+import { lazy, h } from 'glyphui';
+
+const LazyChart = lazy(
+  () => import('./Chart.js'),
+  {
+    loading: () => h('div', { class: 'spinner' }, ['Loading chart...']),
+    error: ({ error }) => h('div', { class: 'error' }, [
+      h('p', {}, ['Failed to load chart']),
+      h('small', {}, [error.message])
+    ])
+  }
+);
+```
+
+### With ES Module Default Export
+
+```javascript
+// Dashboard.js
+export default class Dashboard extends Component {
+  render() {
+    return h('div', {}, ['Dashboard content']);
+  }
+}
+
+// App.js
+const LazyDashboard = lazy(() => import('./Dashboard.js'));
+// The .default export is automatically handled
+```
+
+## Behavior
+
+- Components start loading immediately when instantiated
+- Loading state is shown while the module is being fetched
+- Once loaded, the component is rendered with the provided props
+- On error, the error state is displayed
+- Handles both ES module default exports and direct Component classes
+
+## See Also
+
+- [Suspense](/api/suspense) - Alternative loading state pattern
+- [createDelayedComponent()](/api/lazy#createdelayedcomponent) - Testing utility for lazy loading
+
+---
+
+## createDelayedComponent()
+
+A utility function for testing lazy loading behavior by simulating network delay.
+
+### Signature
+
+```javascript
+function createDelayedComponent(Component, delayMs)
+```
+
+<ParamField path="Component" type="Class" required>
+  The Component class to delay loading.
+</ParamField>
+
+<ParamField path="delayMs" type="number" default="1000">
+  The delay in milliseconds before resolving the component.
+</ParamField>
+
+<ResponseField name="return" type="Function">
+  A function that returns a Promise resolving to the Component after the specified delay.
+</ResponseField>
+
+### Usage
+
+```javascript
+import { lazy, createDelayedComponent } from 'glyphui';
+import Dashboard from './Dashboard.js';
+
+// Create a lazy component with 2 second simulated delay
+const LazyDashboard = lazy(
+  createDelayedComponent(Dashboard, 2000)
+);
+
+// Test loading states in development
+function TestApp() {
+  return h('div', {}, [
+    LazyDashboard()
+  ]);
+}
+```

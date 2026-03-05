@@ -1,0 +1,382 @@
+---
+title: 'Todo App'
+description: 'A feature-rich todo app with global state management and theme switching'
+icon: 'list-check'
+---
+
+## Overview
+
+The Todo App demonstrates advanced GlyphUI features:
+- Global state management with `createStore()`
+- Component composition with `connect()`
+- Multiple stores (todo + theme)
+- Filtering and batch operations
+- Theme switching with dark mode
+
+<Card title="Live Demo" icon="play" href="https://github.com/x0bd/glyphui/tree/main/examples/vercel-todo">
+  View the complete source code on GitHub
+</Card>
+
+## What You'll Learn
+
+<CardGroup cols={2}>
+  <Card title="Store Creation" icon="database">
+    Creating global stores with createStore()
+  </Card>
+  <Card title="Connect Pattern" icon="plug">
+    Connecting components to stores
+  </Card>
+  <Card title="State Selectors" icon="filter">
+    Selecting specific state slices
+  </Card>
+  <Card title="Theme Switching" icon="palette">
+    Implementing dark/light mode
+  </Card>
+</CardGroup>
+
+## Complete Code
+
+### Store Definitions
+
+```javascript vercel-todo.js
+import {
+  Component,
+  createComponent,
+  h,
+  createStore,
+  connect
+} from "@glyphui/runtime";
+
+// Theme Store
+const themeStore = createStore((set) => ({
+  isDark: window.matchMedia('(prefers-color-scheme: dark)').matches,
+  toggleTheme: () => set((state) => ({ isDark: !state.isDark })),
+}));
+
+// Todo Store
+const todoStore = createStore((set) => ({
+  todos: [],
+  newTodoText: '',
+  filter: 'all', // 'all', 'active', 'completed'
+  nextId: 1,
+
+  setNewTodoText: (text) => set({ newTodoText: text }),
+  
+  addTodo: () => set((state) => {
+    if (!state.newTodoText.trim()) return state;
+    
+    return {
+      todos: [
+        ...state.todos,
+        {
+          id: state.nextId,
+          text: state.newTodoText,
+          completed: false,
+          createdAt: Date.now()
+        }
+      ],
+      newTodoText: '',
+      nextId: state.nextId + 1
+    };
+  }),
+  
+  toggleTodo: (id) => set((state) => ({
+    todos: state.todos.map(todo => 
+      todo.id === id ? { ...todo, completed: !todo.completed } : todo
+    )
+  })),
+  
+  removeTodo: (id) => set((state) => ({
+    todos: state.todos.filter(todo => todo.id !== id)
+  })),
+  
+  clearCompleted: () => set((state) => ({
+    todos: state.todos.filter(todo => !todo.completed)
+  })),
+  
+  setFilter: (filter) => set({ filter }),
+  
+  getFilteredTodos: (state) => {
+    switch (state.filter) {
+      case 'active':
+        return state.todos.filter(todo => !todo.completed);
+      case 'completed':
+        return state.todos.filter(todo => todo.completed);
+      default:
+        return state.todos;
+    }
+  },
+  
+  getStats: (state) => {
+    const total = state.todos.length;
+    const completed = state.todos.filter(todo => todo.completed).length;
+    const active = total - completed;
+    
+    return { total, completed, active };
+  }
+}));
+```
+
+### Connected Components
+
+```javascript
+// Theme Toggle Component
+class ThemeToggle extends Component {
+  render(props) {
+    const { store } = props;
+    
+    if (store.isDark) {
+      document.body.setAttribute('data-theme', 'dark');
+    } else {
+      document.body.removeAttribute('data-theme');
+    }
+    
+    return h('button', {
+      class: 'theme-toggle',
+      on: { click: () => store.toggleTheme() }
+    }, [
+      store.isDark ? '☀️' : '🌙'
+    ]);
+  }
+}
+
+const ConnectedThemeToggle = connect(themeStore)(ThemeToggle);
+
+// Todo Input Component
+class TodoInput extends Component {
+  constructor(props) {
+    super(props);
+    this.inputRef = null;
+  }
+  
+  handleKeyDown(e) {
+    if (e.key === 'Enter') {
+      this.props.store.addTodo();
+      if (this.inputRef) {
+        setTimeout(() => this.inputRef.focus(), 0);
+      }
+    }
+  }
+  
+  render(props) {
+    const { store } = props;
+    
+    return h('div', { class: 'todo-input' }, [
+      h('input', { 
+        type: 'text',
+        value: store.newTodoText,
+        placeholder: 'What needs to be done?',
+        ref: (el) => this.inputRef = el,
+        on: { 
+          input: (e) => store.setNewTodoText(e.target.value),
+          keydown: (e) => this.handleKeyDown(e)
+        }
+      }),
+      h('button', { 
+        on: { click: () => store.addTodo() }
+      }, ['Add'])
+    ]);
+  }
+}
+
+const ConnectedTodoInput = connect(todoStore)(TodoInput);
+
+// Todo List Component
+class TodoList extends Component {
+  render(props) {
+    const { store } = props;
+    const filteredTodos = store.getFilteredTodos(store);
+    const stats = store.getStats(store);
+    
+    return h('div', { class: 'todo-list-container' }, [
+      h('div', { class: 'todos' }, 
+        filteredTodos.map(todo =>
+          h('div', {
+            class: `todo-item ${todo.completed ? 'completed' : ''}`,
+            key: todo.id
+          }, [
+            h('div', { class: 'todo-content' }, [todo.text]),
+            h('div', { class: 'todo-actions' }, [
+              h('button', {
+                class: 'secondary small',
+                on: { click: () => store.toggleTodo(todo.id) }
+              }, [todo.completed ? 'Undo' : 'Done']),
+              h('button', {
+                class: 'secondary small remove',
+                on: { click: () => store.removeTodo(todo.id) }
+              }, ['Remove'])
+            ])
+          ])
+        )
+      ),
+      
+      store.todos.length > 0 && h('div', { class: 'stats' }, [ 
+        h('span', {}, [`${stats.active} items left`]),
+        h('div', { class: 'filters' }, [
+          h('button', { 
+            class: `filter ${store.filter === 'all' ? 'active' : ''}`,
+            on: { click: () => store.setFilter('all') }
+          }, ['All']),
+          h('button', { 
+            class: `filter ${store.filter === 'active' ? 'active' : ''}`,
+            on: { click: () => store.setFilter('active') }
+          }, ['Active']),
+          h('button', { 
+            class: `filter ${store.filter === 'completed' ? 'active' : ''}`,
+            on: { click: () => store.setFilter('completed') }
+          }, ['Completed'])
+        ]),
+        stats.completed > 0 && h('button', { 
+          class: 'secondary small clear-completed',
+          on: { click: () => store.clearCompleted() }
+        }, ['Clear Completed'])
+      ])
+    ]);
+  }
+}
+
+const ConnectedTodoList = connect(todoStore)(TodoList);
+
+// Main App
+class TodoApp extends Component {
+  render() {
+    return h('div', { class: 'todo-app' }, [
+      createComponent(ConnectedTodoInput),
+      createComponent(ConnectedTodoList)
+    ]);
+  }
+}
+
+// Mount
+const themeToggle = new ConnectedThemeToggle();
+themeToggle.mount(
+  document.getElementById('theme-toggle').parentNode,
+  document.getElementById('theme-toggle')
+);
+document.getElementById('theme-toggle').remove();
+
+const todoApp = new TodoApp();
+todoApp.mount(document.getElementById('app-container'));
+```
+
+## Key Concepts
+
+### 1. Creating Stores
+
+Stores are created with `createStore()` and a setter function:
+
+```javascript
+const todoStore = createStore((set) => ({
+  todos: [],
+  addTodo: () => set((state) => ({ todos: [...state.todos, newTodo] }))
+}));
+```
+
+<Note>
+  The `set` function can take an object or a function that receives the current state.
+</Note>
+
+### 2. Connecting Components
+
+Use `connect()` to subscribe components to store updates:
+
+```javascript
+const ConnectedTodoInput = connect(todoStore)(TodoInput);
+```
+
+The store is passed as `props.store` to the component.
+
+### 3. State Selectors
+
+You can select specific state slices when connecting:
+
+```javascript
+const ConnectedComponent = connect(todoStore, (state) => ({
+  newTodoText: state.newTodoText,
+  addTodo: state.addTodo
+}))(Component);
+```
+
+### 4. Computed Properties
+
+Derived state can be calculated in the store:
+
+```javascript
+getFilteredTodos: (state) => {
+  switch (state.filter) {
+    case 'active':
+      return state.todos.filter(todo => !todo.completed);
+    case 'completed':
+      return state.todos.filter(todo => todo.completed);
+    default:
+      return state.todos;
+  }
+}
+```
+
+## Features Demonstrated
+
+<AccordionGroup>
+  <Accordion title="State Management">
+    - Multiple independent stores (theme + todo)
+    - Immutable state updates
+    - Computed properties
+  </Accordion>
+  
+  <Accordion title="User Interactions">
+    - Add todos with Enter key
+    - Toggle completion status
+    - Delete todos
+    - Filter by status (all/active/completed)
+    - Clear all completed todos
+  </Accordion>
+  
+  <Accordion title="Advanced Patterns">
+    - Ref usage for input focus
+    - Conditional rendering
+    - Theme persistence via data attributes
+    - Statistics calculation
+  </Accordion>
+</AccordionGroup>
+
+## Running the Example
+
+<Steps>
+  <Step title="Clone the repository">
+    ```bash
+    git clone https://github.com/x0bd/glyphui.git
+    cd glyphui/examples/vercel-todo
+    ```
+  </Step>
+  
+  <Step title="Open in browser">
+    Open `index.html` in your browser or use a development server:
+    ```bash
+    npx serve .
+    ```
+  </Step>
+  
+  <Step title="Try the features">
+    - Add some todos
+    - Toggle completion status
+    - Try different filters
+    - Switch between light and dark themes
+  </Step>
+</Steps>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="State Management" icon="database" href="/state/global-store">
+    Learn more about stores and state
+  </Card>
+  <Card title="Lazy Loading" icon="clock" href="/examples/lazy-loading">
+    Optimize performance with lazy loading
+  </Card>
+  <Card title="Connect API" icon="plug" href="/api/state/connect">
+    Detailed connect() documentation
+  </Card>
+  <Card title="Store API" icon="box" href="/api/state/create-store">
+    Detailed createStore() documentation
+  </Card>
+</CardGroup>

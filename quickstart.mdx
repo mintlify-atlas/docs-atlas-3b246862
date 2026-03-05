@@ -1,80 +1,292 @@
 ---
-title: "Quickstart"
-description: "Start building awesome documentation in minutes"
+title: Quickstart
+description: Build your first GlyphUI app in minutes
 ---
 
-## Get started in three steps
+This guide will walk you through creating a simple counter app with GlyphUI. By the end, you'll understand the basics of components, state management, and event handling.
 
-Get your documentation site running locally and make your first customization.
+## Prerequisites
 
-### Step 1: Set up your local environment
+Make sure you've completed the [installation](/installation) steps before continuing.
 
-<AccordionGroup>
-  <Accordion icon="copy" title="Clone your docs locally">
-    During the onboarding process, you created a GitHub repository with your docs content if you didn't already have one. You can find a link to this repository in your [dashboard](https://dashboard.mintlify.com).
+## Create Your First App
+
+<Steps>
+  <Step title="Create project files">
+    Create a new directory for your app and add two files:
     
-    To clone the repository locally so that you can make and preview changes to your docs, follow the [Cloning a repository](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository) guide in the GitHub docs.
-  </Accordion>
-  <Accordion icon="rectangle-terminal" title="Start the preview server">
-    1. Install the Mintlify CLI: `npm i -g mint`
-    2. Navigate to your docs directory and run: `mint dev`
-    3. Open `http://localhost:3000` to see your docs live!
+    ```bash
+    mkdir my-first-app
+    cd my-first-app
+    touch index.html app.js
+    ```
+  </Step>
+
+  <Step title="Set up the HTML file">
+    Add the following to `index.html`:
     
-    <Tip>Your preview updates automatically as you edit files.</Tip>
-  </Accordion>
-</AccordionGroup>
+    ```html index.html
+    <!DOCTYPE html>
+    <html lang="en">
+      <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>My First GlyphUI App</title>
+        <style>
+          body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            font-family: system-ui, -apple-system, sans-serif;
+          }
+          button {
+            font-size: 1.5rem;
+            padding: 10px 20px;
+            margin: 0 10px;
+            cursor: pointer;
+          }
+          span {
+            font-size: 2rem;
+            margin: 0 20px;
+          }
+        </style>
+        <script type="module" src="./app.js"></script>
+      </head>
+      <body>
+        <main id="app"></main>
+      </body>
+    </html>
+    ```
+  </Step>
 
-### Step 2: Deploy your changes
-
-<AccordionGroup>
-  <Accordion icon="github" title="Install our GitHub app">
-    Install the Mintlify GitHub app from your [dashboard](https://dashboard.mintlify.com/settings/organization/github-app).
+  <Step title="Create the Counter component">
+    Add the following to `app.js`:
     
-    Our GitHub app automatically deploys your changes to your docs site, so you don't need to manage deployments yourself.
-</Accordion>
-<Accordion icon="palette" title="Update your site name and colors">
-    For a first change, let's update the name and colors of your docs site.
+    ```javascript app.js
+    import {
+      Component,
+      h,
+      hFragment,
+      hString,
+    } from "../packages/runtime/dist/glyphui.js";
 
-    1. Open `docs.json` in your editor.
-    2. Change the `"name"` field to your project name.
-    3. Update the `"colors"` to match your brand.
-    4. Save and see your changes instantly at `http://localhost:3000`.
+    class CounterApp extends Component {
+      constructor() {
+        super({}, {
+          initialState: { count: 0 }
+        });
+      }
+      
+      increment() {
+        this.setState({ count: this.state.count + 1 });
+      }
+      
+      decrement() {
+        this.setState({ count: this.state.count - 1 });
+      }
+      
+      render(props, state) {
+        return hFragment([
+          h("button", { on: { click: () => this.decrement() } }, ["-"]),
+          h("span", {}, [
+            hString("count is: "),
+            hString(state.count),
+          ]),
+          h("button", { on: { click: () => this.increment() } }, ["+"]),
+        ]);
+      }
+    }
 
-    <Tip>Try changing the primary color to see an immediate difference!</Tip>
-  </Accordion>
-</AccordionGroup>
+    // Mount the app
+    const app = new CounterApp();
+    app.mount(document.querySelector("#app"));
+    ```
+    
+    <Note>
+      Adjust the import path based on where your app is located relative to the GlyphUI installation. If your app is in a sibling directory to `glyphui/`, use `../glyphui/packages/runtime/dist/glyphui.js`
+    </Note>
+  </Step>
 
-### Step 3: Go live
+  <Step title="Run your app">
+    Start a local server from the GlyphUI root directory:
+    
+    ```bash
+    npx http-server . -c-1
+    ```
+    
+    Then open your browser to `http://localhost:8080/my-first-app/index.html`
+  </Step>
+</Steps>
 
-<Accordion icon="rocket" title="Publish your docs">
-  1. Commit and push your changes.
-  2. Your docs will update and be live in moments!
-</Accordion>
+## What You Built
 
-## Next steps
+Congratulations! You've created a working counter app. Let's break down what each part does:
 
-Now that you have your docs running, explore these key features:
+### Component Class
+
+```javascript
+class CounterApp extends Component {
+  constructor() {
+    super({}, {
+      initialState: { count: 0 }
+    });
+  }
+```
+
+- **Extends Component**: All GlyphUI components extend the `Component` base class
+- **Initial State**: The `initialState` object defines the component's starting state
+- State is accessible via `this.state` throughout the component
+
+### Event Handlers
+
+```javascript
+increment() {
+  this.setState({ count: this.state.count + 1 });
+}
+```
+
+- Methods define behavior for user interactions
+- `this.setState()` updates state and triggers a re-render
+- The component automatically updates the UI when state changes
+
+### Render Method
+
+```javascript
+render(props, state) {
+  return hFragment([
+    h("button", { on: { click: () => this.decrement() } }, ["-"]),
+    h("span", {}, [hString("count is: "), hString(state.count)]),
+    h("button", { on: { click: () => this.increment() } }, ["+"]),
+  ]);
+}
+```
+
+- **h() function**: Creates virtual DOM elements (like `React.createElement`)
+- **hFragment()**: Groups multiple elements without a wrapper
+- **hString()**: Creates text nodes
+- **Event binding**: `on: { click: handler }` attaches event listeners
+
+### Mounting
+
+```javascript
+const app = new CounterApp();
+app.mount(document.querySelector("#app"));
+```
+
+- Creates an instance of your component
+- Mounts it to a DOM element to render the UI
+
+## Try a Different Example
+
+Here's a "Hello World" app with changing greetings:
+
+<CodeGroup>
+```javascript hello.js
+import { h, Component } from "../packages/runtime/dist/glyphui.js";
+
+class HelloWorldApp extends Component {
+  constructor() {
+    super({}, {
+      initialState: { greeting: "Hello, World!" },
+    });
+
+    this.greetings = [
+      "Hello, World!",
+      "Hola, Mundo!",
+      "Bonjour, Monde!",
+      "Ciao, Mondo!",
+      "こんにちは世界！",
+      "你好，世界！",
+      "Привет, мир!",
+    ];
+  }
+
+  changeGreeting() {
+    const currentIndex = this.greetings.indexOf(this.state.greeting);
+    const nextIndex = (currentIndex + 1) % this.greetings.length;
+    this.setState({ greeting: this.greetings[nextIndex] });
+  }
+
+  render(props, state) {
+    return h("div", {}, [
+      h("div", { class: "greeting" }, [state.greeting]),
+      h(
+        "button",
+        {
+          class: "change-btn",
+          on: { click: () => this.changeGreeting() },
+        },
+        ["Next →"]
+      ),
+    ]);
+  }
+}
+
+// Mount the app
+const app = new HelloWorldApp();
+app.mount(document.querySelector("#app"));
+```
+</CodeGroup>
+
+This example demonstrates:
+- Storing arrays in the component instance
+- Cycling through values
+- Applying CSS classes to elements
+
+## Explore More Examples
+
+The GlyphUI repository includes several complete examples:
 
 <CardGroup cols={2}>
-
-<Card title="Write Content" icon="pen-to-square" href="/essentials/markdown">
-  Learn MDX syntax and start writing your documentation.
-</Card>
-
-<Card title="Customize style" icon="palette" href="/essentials/settings">
-  Make your docs match your brand perfectly.
-</Card>
-
-<Card title="Add code examples" icon="square-code" href="/essentials/code">
-  Include syntax-highlighted code blocks.
-</Card>
-
-<Card title="API documentation" icon="code" href="/api-reference/introduction">
-  Auto-generate API docs from OpenAPI specs.
-</Card>
-
+  <Card title="Counter" icon="plus-minus">
+    Simple counter with increment/decrement
+    
+    `examples/counter/counter.html`
+  </Card>
+  
+  <Card title="Todo App" icon="list-check">
+    Full todo app with state management
+    
+    `examples/vercel-todo/index.html`
+  </Card>
+  
+  <Card title="Tic-Tac-Toe" icon="grid">
+    Game with complex state logic
+    
+    `examples/tictactoe/index.html`
+  </Card>
+  
+  <Card title="Lazy Loading" icon="loader">
+    Code splitting with Suspense
+    
+    `examples/lazy-loading/index.html`
+  </Card>
 </CardGroup>
 
-<Note>
-  **Need help?** See our [full documentation](https://mintlify.com/docs) or join our [community](https://mintlify.com/community).
-</Note>
+<Tip>
+  Run `npm run serve:examples` from the project root to explore all examples in your browser.
+</Tip>
+
+## Next Steps
+
+Now that you've built your first app, dive deeper into GlyphUI's features:
+
+<CardGroup cols={2}>
+  <Card title="Virtual DOM" icon="code" href="/concepts/virtual-dom">
+    Learn how the h() function creates virtual elements
+  </Card>
+  
+  <Card title="Components" icon="puzzle-piece" href="/concepts/components">
+    Master component lifecycle and composition
+  </Card>
+  
+  <Card title="State Management" icon="database" href="/state/global-store">
+    Use stores for global state
+  </Card>
+  
+  <Card title="Hooks" icon="link" href="/hooks/overview">
+    Use hooks for state and effects
+  </Card>
+</CardGroup>

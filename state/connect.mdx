@@ -1,0 +1,423 @@
+---
+title: Connecting Components to Stores
+description: Connect components to global stores using the connect() API
+---
+
+The `connect` function links your components to global stores, automatically re-rendering them when the store state changes. This eliminates prop drilling and keeps your components synchronized with shared state.
+
+## Basic Usage
+
+Connect a component to a store:
+
+```javascript
+import { Component, createStore, connect, h } from 'glyphui';
+
+// Create a store
+const counterStore = createStore((set) => ({
+  count: 0,
+  increment: () => set((state) => ({ count: state.count + 1 })),
+  decrement: () => set((state) => ({ count: state.count - 1 }))
+}));
+
+// Define a component
+class CounterDisplay extends Component {
+  render(props) {
+    const { store } = props;
+    
+    return h('div', { class: 'counter' }, [
+      h('p', {}, [`Count: ${store.count}`]),
+      h('button', { on: { click: () => store.increment() } }, ['+']),
+      h('button', { on: { click: () => store.decrement() } }, ['-'])
+    ]);
+  }
+}
+
+// Connect component to store
+const ConnectedCounterDisplay = connect(counterStore)(CounterDisplay);
+
+// Use the connected component
+const counter = new ConnectedCounterDisplay();
+counter.mount(document.getElementById('app'));
+```
+
+## How connect() Works
+
+The `connect` function:
+
+1. Injects store state as `props.store`
+2. Subscribes to store changes
+3. Re-renders the component when state updates
+4. Automatically unsubscribes when the component unmounts
+
+```javascript
+// connect signature
+connect(store, selector?)(ComponentClass)
+```
+
+### Parameters
+
+- **`store`** - The store created with `createStore`
+- **`selector`** (optional) - Function to select specific parts of state
+
+### Returns
+
+A higher-order function that takes a component class and returns a connected component.
+
+## Selecting State with Selectors
+
+Selectors let you choose which parts of the store to expose to your component:
+
+```javascript
+const todoStore = createStore((set) => ({
+  todos: [],
+  newTodoText: '',
+  filter: 'all',
+  setNewTodoText: (text) => set({ newTodoText: text }),
+  addTodo: () => set((state) => ({
+    todos: [...state.todos, { id: Date.now(), text: state.newTodoText }],
+    newTodoText: ''
+  }))
+}));
+
+// Component only needs input-related state
+class TodoInput extends Component {
+  render(props) {
+    const { store } = props;
+    
+    return h('div', { class: 'todo-input' }, [
+      h('input', { 
+        type: 'text',
+        value: store.newTodoText,
+        on: { input: (e) => store.setNewTodoText(e.target.value) }
+      }),
+      h('button', { on: { click: () => store.addTodo() } }, ['Add'])
+    ]);
+  }
+}
+
+// Select only the properties this component needs
+const ConnectedTodoInput = connect(todoStore, (state) => ({
+  newTodoText: state.newTodoText,
+  setNewTodoText: state.setNewTodoText,
+  addTodo: state.addTodo
+}))(TodoInput);
+```
+
+<Note>
+  Selectors optimize performance by preventing unnecessary re-renders. Components only update when their selected state changes.
+</Note>
+
+## mapStateToProps Pattern
+
+The selector function works like Redux's `mapStateToProps`:
+
+```javascript
+// Selector function signature
+(state) => selectedState
+```
+
+Examples:
+
+```javascript
+// Select the entire state (default)
+connect(store)(Component)
+
+// Select specific properties
+connect(store, (state) => ({
+  count: state.count,
+  increment: state.increment
+}))(Component)
+
+// Transform or compute derived state
+connect(todoStore, (state) => ({
+  todos: state.todos,
+  completedCount: state.todos.filter(t => t.completed).length,
+  toggleTodo: state.toggleTodo
+}))(Component)
+```
+
+## Complete Example
+
+Here's a complete todo application with multiple connected components:
+
+```javascript
+import { Component, createComponent, createStore, connect, h } from 'glyphui';
+
+// Create the todo store
+const todoStore = createStore((set) => ({
+  todos: [],
+  newTodoText: '',
+  filter: 'all',
+  nextId: 1,
+  
+  setNewTodoText: (text) => set({ newTodoText: text }),
+  
+  addTodo: () => set((state) => {
+    if (!state.newTodoText.trim()) return state;
+    
+    return {
+      todos: [
+        ...state.todos,
+        { id: state.nextId, text: state.newTodoText, completed: false }
+      ],
+      newTodoText: '',
+      nextId: state.nextId + 1
+    };
+  }),
+  
+  toggleTodo: (id) => set((state) => ({
+    todos: state.todos.map(todo =>
+      todo.id === id ? { ...todo, completed: !todo.completed } : todo
+    )
+  })),
+  
+  removeTodo: (id) => set((state) => ({
+    todos: state.todos.filter(todo => todo.id !== id)
+  })),
+  
+  setFilter: (filter) => set({ filter }),
+  
+  clearCompleted: () => set((state) => ({
+    todos: state.todos.filter(todo => !todo.completed)
+  })),
+  
+  getFilteredTodos: (state) => {
+    switch (state.filter) {
+      case 'active': return state.todos.filter(t => !t.completed);
+      case 'completed': return state.todos.filter(t => t.completed);
+      default: return state.todos;
+    }
+  },
+  
+  getStats: (state) => ({
+    total: state.todos.length,
+    active: state.todos.filter(t => !t.completed).length,
+    completed: state.todos.filter(t => t.completed).length
+  })
+}));
+
+// Todo Input Component
+class TodoInput extends Component {
+  render(props) {
+    const { store } = props;
+    
+    return h('div', { class: 'todo-input' }, [
+      h('input', { 
+        type: 'text',
+        value: store.newTodoText,
+        placeholder: 'What needs to be done?',
+        on: { 
+          input: (e) => store.setNewTodoText(e.target.value),
+          keydown: (e) => {
+            if (e.key === 'Enter') store.addTodo();
+          }
+        }
+      }),
+      h('button', { on: { click: () => store.addTodo() } }, ['Add'])
+    ]);
+  }
+}
+
+// Connect with selector - only input-related state
+const ConnectedTodoInput = connect(todoStore, (state) => ({
+  newTodoText: state.newTodoText,
+  setNewTodoText: state.setNewTodoText,
+  addTodo: state.addTodo
+}))(TodoInput);
+
+// Todo List Component
+class TodoList extends Component {
+  render(props) {
+    const { store } = props;
+    const filteredTodos = store.getFilteredTodos(store);
+    const stats = store.getStats(store);
+    
+    const content = [];
+    
+    if (filteredTodos.length > 0) {
+      filteredTodos.forEach(todo => {
+        content.push(
+          h('div', {
+            key: todo.id,
+            class: `todo-item ${todo.completed ? 'completed' : ''}`
+          }, [
+            h('div', { class: 'todo-content' }, [todo.text]),
+            h('div', { class: 'todo-actions' }, [
+              h('button', {
+                on: { click: () => store.toggleTodo(todo.id) }
+              }, [todo.completed ? 'Undo' : 'Done']),
+              h('button', {
+                class: 'remove',
+                on: { click: () => store.removeTodo(todo.id) }
+              }, ['Remove'])
+            ])
+          ])
+        );
+      });
+    }
+    
+    return h('div', { class: 'todo-list-container' }, [
+      h('div', { class: 'todos' }, content),
+      
+      store.todos.length > 0 ? h('div', { class: 'stats' }, [
+        h('span', {}, [`${stats.active} items left`]),
+        
+        h('div', { class: 'filters' }, [
+          h('button', {
+            class: `filter ${store.filter === 'all' ? 'active' : ''}`,
+            on: { click: () => store.setFilter('all') }
+          }, ['All']),
+          h('button', {
+            class: `filter ${store.filter === 'active' ? 'active' : ''}`,
+            on: { click: () => store.setFilter('active') }
+          }, ['Active']),
+          h('button', {
+            class: `filter ${store.filter === 'completed' ? 'active' : ''}`,
+            on: { click: () => store.setFilter('completed') }
+          }, ['Completed'])
+        ]),
+        
+        stats.completed > 0 ? h('button', {
+          class: 'clear-completed',
+          on: { click: () => store.clearCompleted() }
+        }, ['Clear Completed']) : null
+      ]) : null
+    ]);
+  }
+}
+
+// Connect with full store access
+const ConnectedTodoList = connect(todoStore)(TodoList);
+
+// Main container component
+class TodoApp extends Component {
+  render() {
+    return h('div', { class: 'todo-app' }, [
+      h('h1', {}, ['Todos']),
+      createComponent(ConnectedTodoInput),
+      createComponent(ConnectedTodoList)
+    ]);
+  }
+}
+
+// Mount the app
+const app = new TodoApp();
+app.mount(document.getElementById('app'));
+```
+
+## Performance Optimization
+
+The `connect` function includes built-in optimizations:
+
+### Shallow Equality Checking
+
+Components only re-render when selected state actually changes:
+
+```javascript
+// Component won't re-render if count stays the same
+const ConnectedCounter = connect(counterStore, (state) => ({
+  count: state.count
+}))(Counter);
+```
+
+### Array Comparison
+
+Arrays are compared by length and reference equality:
+
+```javascript
+// Re-renders only when todos array changes
+const ConnectedTodoList = connect(todoStore, (state) => ({
+  todos: state.todos
+}))(TodoList);
+```
+
+### Function Equality
+
+Functions are compared by name, preventing unnecessary updates:
+
+```javascript
+// Actions don't cause re-renders if their names match
+const ConnectedInput = connect(todoStore, (state) => ({
+  addTodo: state.addTodo, // Compared by function name
+  text: state.newTodoText  // Compared by value
+}))(Input);
+```
+
+<Note>
+  For best performance, select only the state your component needs. The smaller the selection, the fewer unnecessary re-renders.
+</Note>
+
+## Lifecycle with Connected Components
+
+Connected components automatically manage subscriptions:
+
+```javascript
+class MyComponent extends Component {
+  mounted() {
+    // Component is mounted and subscribed to store
+    console.log('Connected to store');
+  }
+  
+  beforeUnmount() {
+    // Store subscription will be cleaned up automatically
+    console.log('Disconnecting from store');
+  }
+  
+  render(props) {
+    const { store } = props;
+    // Render with store state
+  }
+}
+
+const ConnectedComponent = connect(myStore)(MyComponent);
+```
+
+## Multiple Store Connections
+
+Connect a component to multiple stores by nesting `connect` calls:
+
+```javascript
+// Connect to counter store
+const ConnectedOnce = connect(counterStore)(MyComponent);
+
+// Then connect to theme store
+const ConnectedTwice = connect(themeStore)(ConnectedOnce);
+
+// Component receives both stores
+class MyComponent extends Component {
+  render(props) {
+    const { store } = props; // Will have both counter and theme data
+  }
+}
+```
+
+Or use multiple props:
+
+```javascript
+const ConnectedComponent = connect(counterStore, (state) => ({
+  counter: state.count,
+  increment: state.increment
+}))(connect(themeStore, (state) => ({
+  theme: state.theme,
+  setTheme: state.setTheme
+}))(MyComponent));
+```
+
+## When to Use connect()
+
+Use `connect()` when:
+
+- **Sharing state** across multiple components
+- **Avoiding prop drilling** through component trees
+- **Synchronizing** multiple components to the same data
+- **Building reusable** components that work with global state
+
+<Note>
+  For component-specific state, use [local state](/state/local-state) instead. Only connect to stores when you need shared state.
+</Note>
+
+## Next Steps
+
+- Learn about [creating stores](/state/global-store) with `createStore`
+- Review [local state](/state/local-state) for component-specific data
+- Explore the [createApp pattern](/state/create-app) for simple applications

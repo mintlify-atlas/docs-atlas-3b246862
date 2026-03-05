@@ -1,0 +1,339 @@
+---
+title: useEffect
+description: Perform side effects in functional components with the useEffect hook
+---
+
+## Overview
+
+The `useEffect` hook lets you perform side effects in functional components. Side effects include data fetching, subscriptions, timers, manual DOM manipulation, and more.
+
+Effects run after the component renders, keeping your side effect logic separate from the rendering logic.
+
+## Signature
+
+```javascript
+useEffect(effectFunction, dependencies);
+```
+
+## Parameters
+
+<ParamField path="effectFunction" type="function" required>
+  A function containing the side effect code. This function runs after the component renders to the DOM.
+  
+  The effect function can optionally return a cleanup function. The cleanup function runs:
+  - Before the effect runs again (if dependencies changed)
+  - When the component unmounts
+</ParamField>
+
+<ParamField path="dependencies" type="array">
+  An optional array of dependencies. The effect will only re-run if one of these values has changed since the last render.
+  
+  - **Omit the array**: Effect runs after every render
+  - **Empty array `[]`**: Effect runs only once after the initial render
+  - **Array with values**: Effect runs when any value in the array changes
+</ParamField>
+
+## Usage
+
+### Running Effects on Every Render
+
+If you omit the dependency array, the effect runs after every render:
+
+```javascript
+import { h, useState, useEffect } from './glyphui.js';
+
+const Component = () => {
+  const [count, setCount] = useState(0);
+  
+  useEffect(() => {
+    console.log('Component rendered! Count:', count);
+  }); // No dependency array - runs every render
+  
+  return h('button', { onclick: () => setCount(count + 1) }, ['Click me']);
+};
+```
+
+### Running Effects Once (Component Mount)
+
+Pass an empty array `[]` to run the effect only once after the initial render:
+
+```javascript
+const DataFetcher = () => {
+  const [data, setData] = useState(null);
+  
+  useEffect(() => {
+    console.log('Fetching data...');
+    fetch('https://api.example.com/data')
+      .then(res => res.json())
+      .then(data => setData(data));
+  }, []); // Empty array - runs only once
+  
+  return h('div', {}, [data ? JSON.stringify(data) : 'Loading...']);
+};
+```
+
+### Running Effects When Dependencies Change
+
+Provide an array of dependencies to control when the effect runs:
+
+```javascript
+const UserProfile = ({ userId }) => {
+  const [user, setUser] = useState(null);
+  
+  useEffect(() => {
+    console.log('Fetching user:', userId);
+    fetch(`https://api.example.com/users/${userId}`)
+      .then(res => res.json())
+      .then(data => setUser(data));
+  }, [userId]); // Runs when userId changes
+  
+  return h('div', {}, [user ? user.name : 'Loading...']);
+};
+```
+
+### Cleanup Functions
+
+Return a cleanup function from your effect to clean up resources:
+
+```javascript
+const Timer = () => {
+  const [time, setTime] = useState(0);
+  const [isRunning, setIsRunning] = useState(false);
+  
+  useEffect(() => {
+    let intervalId = null;
+    
+    if (isRunning) {
+      intervalId = setInterval(() => {
+        setTime(prevTime => prevTime + 1);
+      }, 1000);
+    }
+    
+    // Cleanup function - runs before next effect and on unmount
+    return () => {
+      if (intervalId) {
+        clearInterval(intervalId);
+        console.log('Cleaned up interval');
+      }
+    };
+  }, [isRunning]); // Re-run when isRunning changes
+  
+  return h('div', {}, [
+    h('p', {}, [`Time: ${time}s`]),
+    h('button', { onclick: () => setIsRunning(!isRunning) }, [
+      isRunning ? 'Pause' : 'Start'
+    ])
+  ]);
+};
+```
+
+### Multiple Effects
+
+You can use multiple `useEffect` calls in a single component to separate concerns:
+
+```javascript
+const Dashboard = ({ userId }) => {
+  const [user, setUser] = useState(null);
+  const [notifications, setNotifications] = useState([]);
+  
+  // Effect for fetching user data
+  useEffect(() => {
+    fetch(`/api/users/${userId}`)
+      .then(res => res.json())
+      .then(setUser);
+  }, [userId]);
+  
+  // Separate effect for notifications
+  useEffect(() => {
+    const ws = new WebSocket('wss://api.example.com/notifications');
+    
+    ws.onmessage = (event) => {
+      setNotifications(prev => [...prev, JSON.parse(event.data)]);
+    };
+    
+    return () => {
+      ws.close();
+    };
+  }, []); // Independent lifecycle
+  
+  return h('div', {}, [
+    user && h('h1', {}, [user.name]),
+    h('ul', {}, notifications.map(n => h('li', {}, [n.message])))
+  ]);
+};
+```
+
+## Practical Examples
+
+### Document Title Updates
+
+```javascript
+const Counter = () => {
+  const [count, setCount] = useState(0);
+  
+  useEffect(() => {
+    document.title = `Count: ${count}`;
+  }, [count]);
+  
+  return h('button', { onclick: () => setCount(count + 1) }, [
+    `Clicked ${count} times`
+  ]);
+};
+```
+
+### Event Listeners
+
+```javascript
+const WindowSize = () => {
+  const [width, setWidth] = useState(window.innerWidth);
+  
+  useEffect(() => {
+    const handleResize = () => setWidth(window.innerWidth);
+    
+    window.addEventListener('resize', handleResize);
+    
+    // Cleanup: remove listener when component unmounts
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+  
+  return h('p', {}, [`Window width: ${width}px`]);
+};
+```
+
+### Focus Management
+
+```javascript
+const AutoFocusInput = () => {
+  const inputRef = useRef(null);
+  
+  useEffect(() => {
+    if (inputRef.current) {
+      inputRef.current.focus();
+    }
+  }, []); // Focus on mount
+  
+  return h('input', {
+    ref: (el) => (inputRef.current = el)
+  }, []);
+};
+```
+
+## How It Works
+
+The `useEffect` hook is implemented in `packages/runtime/src/hooks.js:163-271`. Here's the execution flow:
+
+1. **First Render**: On the initial render, the effect is scheduled to run after rendering completes using `setTimeout(..., 0)`.
+
+2. **Subsequent Renders**: On re-renders, GlyphUI compares the new dependencies with the previous dependencies:
+   - If dependencies haven't changed, the effect is skipped
+   - If dependencies changed, the cleanup function (if any) runs first, then the new effect runs
+
+3. **Cleanup Execution**: Cleanup functions are stored per-hook-index in `componentHooksStore` and run:
+   - Before the effect re-runs (when dependencies change)
+   - When the component unmounts (via `runCleanupFunctions()`)
+
+4. **Async Execution**: Effects run asynchronously after the render commits to the DOM, so they don't block rendering.
+
+## Dependency Array Rules
+
+### Include All Dependencies
+
+Every value from the component scope that's used inside the effect should be included in the dependency array:
+
+```javascript
+// ❌ Bad: Missing userId dependency
+useEffect(() => {
+  fetchUser(userId).then(setUser);
+}, []);
+
+// ✅ Good: userId included
+useEffect(() => {
+  fetchUser(userId).then(setUser);
+}, [userId]);
+```
+
+### Avoid Object Dependencies
+
+Be careful with object and array dependencies. GlyphUI uses strict equality (`!==`) to compare dependencies, so objects are compared by reference:
+
+```javascript
+const [filter, setFilter] = useState({ name: '', age: 0 });
+
+// ❌ Bad: Object identity changes on every render
+useEffect(() => {
+  fetchData(filter);
+}, [filter]); // Runs on every render!
+
+// ✅ Better: Depend on specific properties
+useEffect(() => {
+  fetchData({ name: filter.name, age: filter.age });
+}, [filter.name, filter.age]);
+```
+
+### Empty Array for Mount-Only Effects
+
+Use `[]` when the effect should run only once:
+
+```javascript
+// ✅ Good: Setup that only needs to run once
+useEffect(() => {
+  const analytics = initAnalytics();
+  return () => analytics.cleanup();
+}, []);
+```
+
+## Common Pitfalls
+
+### Stale Closures
+
+Be aware of stale closures when using effects:
+
+```javascript
+const Counter = () => {
+  const [count, setCount] = useState(0);
+  
+  useEffect(() => {
+    const id = setInterval(() => {
+      console.log(count); // ❌ Always logs 0 (stale closure)
+      setCount(count + 1); // ❌ Always sets to 1
+    }, 1000);
+    
+    return () => clearInterval(id);
+  }, []); // Empty deps - effect never re-runs
+  
+  return h('div', {}, [`Count: ${count}`]);
+};
+
+// ✅ Solution: Use functional update
+useEffect(() => {
+  const id = setInterval(() => {
+    setCount(prev => prev + 1); // ✅ Always uses latest value
+  }, 1000);
+  
+  return () => clearInterval(id);
+}, []); // Now safe with empty deps
+```
+
+### Infinite Loops
+
+Avoid creating infinite loops by updating state that's in the dependency array:
+
+```javascript
+// ❌ Bad: Infinite loop!
+useEffect(() => {
+  setCount(count + 1);
+}, [count]); // count changes → effect runs → count changes → ...
+
+// ✅ Good: Conditional update
+useEffect(() => {
+  if (count < 10) {
+    setCount(count + 1);
+  }
+}, [count]);
+```
+
+## Related Hooks
+
+- [useState](/hooks/use-state) - Often used together with useEffect
+- [useRef](/hooks/use-ref) - Store mutable values that don't trigger effects
+- [useCallback](/hooks/use-callback) - Memoize callbacks used in effect dependencies

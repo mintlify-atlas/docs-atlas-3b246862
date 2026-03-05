@@ -1,0 +1,364 @@
+---
+title: "createActions"
+description: "Creates bound action creators that automatically update the store"
+---
+
+## Overview
+
+The `createActions` function creates a set of action creators that are automatically bound to a store. Actions receive the current state as their first argument and can return state updates that are automatically applied to the store.
+
+This pattern separates action logic from the store definition, making it easier to organize complex state management logic.
+
+## Signature
+
+```javascript
+function createActions(store, actions)
+```
+
+<ParamField path="store" type="object" required>
+  The store object created with `createStore`.
+</ParamField>
+
+<ParamField path="actions" type="object" required>
+  An object where keys are action names and values are action functions.
+  
+  Each action function receives:
+  - `state` - The current store state
+  - `...args` - Any additional arguments passed when calling the action
+  
+  **Action Signature:**
+  ```javascript
+  (state, ...args) => stateUpdates | void
+  ```
+  
+  If the action returns an object, it is automatically passed to `store.setState()`.
+</ParamField>
+
+## Return Value
+
+Returns an object with bound action functions. Each function:
+
+1. Gets the current state from the store
+2. Calls the original action function with `(state, ...args)`
+3. If the result is an object, calls `store.setState(result)`
+4. Returns the result
+
+## Examples
+
+### Basic Action Creators
+
+```javascript
+import { createStore, createActions } from '@glyphui/runtime';
+
+// Create a simple store
+const counterStore = createStore(() => ({
+  count: 0
+}));
+
+// Define actions separately
+const counterActions = createActions(counterStore, {
+  increment: (state) => ({
+    count: state.count + 1
+  }),
+  
+  decrement: (state) => ({
+    count: state.count - 1
+  }),
+  
+  incrementBy: (state, amount) => ({
+    count: state.count + amount
+  }),
+  
+  reset: () => ({
+    count: 0
+  })
+});
+
+// Use the actions
+counterActions.increment();
+console.log(counterStore.getState().count); // 1
+
+counterActions.incrementBy(5);
+console.log(counterStore.getState().count); // 6
+
+counterActions.reset();
+console.log(counterStore.getState().count); // 0
+```
+
+### Actions with Side Effects
+
+Actions can perform side effects before returning state updates:
+
+```javascript
+const todoStore = createStore(() => ({
+  todos: [],
+  isLoading: false,
+  error: null
+}));
+
+const todoActions = createActions(todoStore, {
+  // Synchronous action
+  addTodo: (state, text) => ({
+    todos: [...state.todos, { id: Date.now(), text, completed: false }]
+  }),
+  
+  // Action with side effects
+  loadTodos: async (state) => {
+    // Set loading state
+    todoStore.setState({ isLoading: true, error: null });
+    
+    try {
+      const todos = await api.fetchTodos();
+      // Return final state update
+      return { todos, isLoading: false };
+    } catch (error) {
+      // Handle errors
+      return { error: error.message, isLoading: false };
+    }
+  },
+  
+  // Action that doesn't return state
+  logTodoCount: (state) => {
+    console.log('Total todos:', state.todos.length);
+    // No return value = no state update
+  }
+});
+
+// Use async actions
+await todoActions.loadTodos();
+todoActions.addTodo('Buy groceries');
+todoActions.logTodoCount(); // Logs but doesn't update state
+```
+
+### Complex State Updates
+
+```javascript
+const cartStore = createStore(() => ({
+  items: [],
+  total: 0
+}));
+
+const cartActions = createActions(cartStore, {
+  addItem: (state, item) => {
+    const existingItem = state.items.find(i => i.id === item.id);
+    
+    let newItems;
+    if (existingItem) {
+      // Increment quantity if item exists
+      newItems = state.items.map(i =>
+        i.id === item.id ? { ...i, quantity: i.quantity + 1 } : i
+      );
+    } else {
+      // Add new item
+      newItems = [...state.items, { ...item, quantity: 1 }];
+    }
+    
+    // Recalculate total
+    const total = newItems.reduce(
+      (sum, item) => sum + item.price * item.quantity,
+      0
+    );
+    
+    return { items: newItems, total };
+  },
+  
+  removeItem: (state, itemId) => {
+    const newItems = state.items.filter(i => i.id !== itemId);
+    const total = newItems.reduce(
+      (sum, item) => sum + item.price * item.quantity,
+      0
+    );
+    
+    return { items: newItems, total };
+  },
+  
+  clearCart: () => ({
+    items: [],
+    total: 0
+  })
+});
+```
+
+### Organizing Actions by Domain
+
+```javascript
+const appStore = createStore(() => ({
+  user: null,
+  todos: [],
+  settings: { theme: 'light' }
+}));
+
+// Group related actions
+const userActions = createActions(appStore, {
+  login: (state, credentials) => ({
+    user: { id: 1, name: credentials.username }
+  }),
+  
+  logout: () => ({
+    user: null
+  })
+});
+
+const todoActions = createActions(appStore, {
+  addTodo: (state, text) => ({
+    todos: [...state.todos, { id: Date.now(), text }]
+  }),
+  
+  removeTodo: (state, id) => ({
+    todos: state.todos.filter(t => t.id !== id)
+  })
+});
+
+const settingsActions = createActions(appStore, {
+  setTheme: (state, theme) => ({
+    settings: { ...state.settings, theme }
+  })
+});
+
+// Use organized actions
+userActions.login({ username: 'alice' });
+todoActions.addTodo('Learn GlyphUI');
+settingsActions.setTheme('dark');
+```
+
+## When to Use createActions
+
+### Use createActions When:
+
+<Card title="Separating Concerns" icon="layer-group">
+  You want to keep action logic separate from the store definition for better organization.
+</Card>
+
+<Card title="Shared Actions" icon="share-nodes">
+  Multiple parts of your app need access to the same actions without importing the entire store.
+</Card>
+
+<Card title="Testing" icon="vial">
+  You want to test action logic independently from components.
+</Card>
+
+<Card title="Complex Logic" icon="diagram-project">
+  Actions have complex logic that would clutter the store definition.
+</Card>
+
+### Use Store Actions (createStore) When:
+
+<Card title="Simple Stores" icon="circle">
+  The store is simple and keeping actions inline is clearer.
+</Card>
+
+<Card title="Encapsulation" icon="lock">
+  Actions should be tightly coupled to the store and not used elsewhere.
+</Card>
+
+## Comparison: createActions vs Store Actions
+
+### Store Actions (Inline)
+
+```javascript
+const store = createStore((setState, getState) => ({
+  count: 0,
+  increment: () => {
+    const state = getState();
+    setState({ count: state.count + 1 });
+  }
+}));
+
+// Call directly from store state
+store.getState().increment();
+```
+
+### Separate Actions (createActions)
+
+```javascript
+const store = createStore(() => ({
+  count: 0
+}));
+
+const actions = createActions(store, {
+  increment: (state) => ({ count: state.count + 1 })
+});
+
+// Call from actions object
+actions.increment();
+```
+
+Both approaches are valid. Choose based on your needs:
+
+- **Store actions**: More concise, actions are part of state
+- **createActions**: More flexible, easier to test and organize
+
+## Action Patterns
+
+### Returning Partial Updates
+
+Actions can return partial state updates that will be merged:
+
+```javascript
+const actions = createActions(store, {
+  // Only updates 'count', leaves other state unchanged
+  increment: (state) => ({ count: state.count + 1 })
+});
+```
+
+### Multiple State Updates
+
+For multiple state updates, call `setState` directly:
+
+```javascript
+const actions = createActions(store, {
+  complexUpdate: (state) => {
+    // Intermediate update
+    store.setState({ isLoading: true });
+    
+    // Do work...
+    
+    // Final update
+    return { data: newData, isLoading: false };
+  }
+});
+```
+
+### Conditional Updates
+
+```javascript
+const actions = createActions(store, {
+  toggleFeature: (state, featureName) => {
+    // Only update if feature exists
+    if (!state.features[featureName]) {
+      console.warn('Feature not found');
+      return; // No state update
+    }
+    
+    return {
+      features: {
+        ...state.features,
+        [featureName]: !state.features[featureName]
+      }
+    };
+  }
+});
+```
+
+## Best Practices
+
+<Card title="Keep Actions Pure" icon="flask">
+  Actions should be predictable. Given the same state and arguments, they should produce the same result.
+</Card>
+
+<Card title="Return New Objects" icon="clone">
+  Always return new objects/arrays rather than mutating the state directly to ensure proper reactivity.
+</Card>
+
+<Card title="Handle Errors" icon="triangle-exclamation">
+  For async actions, catch errors and update the state accordingly. Consider an error field in your state.
+</Card>
+
+<Card title="Use Descriptive Names" icon="signature">
+  Action names should clearly describe what they do: `addTodo`, `removeUser`, `toggleTheme`.
+</Card>
+
+## See Also
+
+- [createStore](/api/state/create-store) - Create a state management store
+- [connect](/api/state/connect) - Connect a store to GlyphUI components

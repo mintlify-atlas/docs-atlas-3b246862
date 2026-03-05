@@ -1,0 +1,239 @@
+---
+title: Virtual DOM
+description: Understanding GlyphUI's Virtual DOM implementation and how it efficiently represents UI structures
+---
+
+## What is the Virtual DOM?
+
+The Virtual DOM (VDOM) is a lightweight JavaScript representation of the actual DOM. Instead of directly manipulating the browser's DOM (which is slow), GlyphUI creates a virtual tree of objects that mirrors the structure of your UI.
+
+When your application's state changes, GlyphUI:
+1. Creates a new Virtual DOM tree
+2. Compares it with the previous tree (diffing)
+3. Calculates the minimal set of changes needed
+4. Updates only the necessary parts of the real DOM
+
+This approach leads to better performance and a more declarative way of building user interfaces.
+
+## DOM Types
+
+GlyphUI defines three fundamental types of virtual nodes in `packages/runtime/src/h.js:4-8`:
+
+```javascript
+export const DOM_TYPES = {
+  TEXT: "text",
+  ELEMENT: "element",
+  FRAGMENT: "fragment",
+};
+```
+
+### Text Nodes
+Represent plain text content in your UI. Automatically created when you pass strings as children.
+
+### Element Nodes
+Represent HTML elements with a tag, props, and children.
+
+### Fragment Nodes
+Group multiple children without adding an extra element to the DOM.
+
+## The h() Function
+
+The `h()` function (short for "hyperscript") is the core of creating Virtual DOM nodes. It takes three arguments:
+
+```javascript
+h(tag, props, children)
+```
+
+- **tag** (string): The HTML tag name (`'div'`, `'span'`, `'button'`, etc.)
+- **props** (object): Element attributes, event listeners, and special properties
+- **children** (array): Child elements (can be `h()` calls, strings, or null values)
+
+<Note>
+Strings in the children array are automatically converted to text nodes using the internal `hString()` function.
+</Note>
+
+### Basic Example
+
+Here's how to create a simple button element:
+
+```javascript
+import { h } from 'glyphui';
+
+const button = h('button', { class: 'primary' }, ['Click me']);
+```
+
+This creates a virtual node structure:
+
+```javascript
+{
+  tag: 'button',
+  props: { class: 'primary' },
+  children: [{ type: 'text', value: 'Click me' }],
+  type: 'element'
+}
+```
+
+### Special Props
+
+The `h()` function recognizes several special props from `packages/runtime/src/h.js:14-19`:
+
+#### Event Listeners (`on`)
+
+Attach event handlers using an object where keys are event names:
+
+```javascript
+h('button', {
+  on: {
+    click: () => console.log('Clicked!'),
+    mouseenter: (e) => console.log('Mouse entered')
+  }
+}, ['Hover me']);
+```
+
+#### CSS Classes (`class`)
+
+Can be a string or array of strings:
+
+```javascript
+// String
+h('div', { class: 'container' }, []);
+
+// Array
+h('div', { class: ['container', 'active', 'large'] }, []);
+```
+
+#### Inline Styles (`style`)
+
+Provide CSS properties as an object:
+
+```javascript
+h('div', {
+  style: {
+    color: 'blue',
+    backgroundColor: '#f0f0f0',
+    padding: '20px'
+  }
+}, ['Styled content']);
+```
+
+#### Keys (`key`)
+
+Unique identifiers for efficient list rendering (covered in the Rendering page):
+
+```javascript
+items.map(item => 
+  h('li', { key: item.id }, [item.name])
+)
+```
+
+<Warning>
+The `key` prop is used internally for reconciliation and is not rendered as an HTML attribute.
+</Warning>
+
+### Complex Example
+
+Here's a more realistic example from the hello-world demo:
+
+```javascript
+import { h } from 'glyphui';
+
+const greeting = h('div', {}, [
+  h('div', { class: 'greeting' }, ['Hello, World!']),
+  h('button', {
+    class: 'change-btn',
+    on: { click: () => changeGreeting() }
+  }, ['Next →'])
+]);
+```
+
+## Helper Functions
+
+GlyphUI provides additional helper functions for creating specific node types:
+
+### hString()
+
+Explicitly creates a text virtual node:
+
+```javascript
+import { hString } from 'glyphui';
+
+const textNode = hString('Hello');
+// Returns: { type: 'text', value: 'Hello' }
+```
+
+<Tip>
+You rarely need to use `hString()` directly. The `h()` function automatically converts strings to text nodes.
+</Tip>
+
+### hFragment()
+
+Creates a fragment node that groups children without adding a wrapper element:
+
+```javascript
+import { h, hFragment } from 'glyphui';
+
+// This renders an h1 and p directly inside the parent
+// without a wrapping div
+const fragment = hFragment([
+  h('h1', {}, ['Title']),
+  h('p', {}, ['Description'])
+]);
+```
+
+Fragments are useful when:
+- You need to return multiple root elements from a component
+- You want to avoid unnecessary DOM nesting
+- You're working with components that expect specific child structures
+
+### Example from Counter App
+
+From `examples/counter/counter.js:24-31`:
+
+```javascript
+render(props, state) {
+  return hFragment([
+    h('button', { on: { click: () => this.decrement() } }, ['-']),
+    h('span', {}, [
+      hString('count is: '),
+      hString(state.count),
+    ]),
+    h('button', { on: { click: () => this.increment() } }, ['+'])
+  ]);
+}
+```
+
+## Virtual Node Structure
+
+When you call `h()`, it creates a plain JavaScript object from `packages/runtime/src/h.js:29-36`:
+
+```javascript
+{
+  tag: 'div',                    // HTML tag name
+  props: { class: 'container' }, // Attributes and event listeners
+  children: [...],               // Array of child virtual nodes
+  type: 'element'                // DOM_TYPES.ELEMENT
+}
+```
+
+This structure is lightweight and can be quickly created, compared, and manipulated without touching the actual DOM.
+
+## Why Virtual DOM?
+
+<Accordion title="Performance Benefits">
+Direct DOM manipulation is expensive. Every change can trigger reflows and repaints. The Virtual DOM batches updates and minimizes actual DOM operations.
+</Accordion>
+
+<Accordion title="Declarative Programming">
+You describe what the UI should look like for any given state, and GlyphUI handles the updates. No need to manually track and update individual DOM nodes.
+</Accordion>
+
+<Accordion title="Cross-platform Potential">
+The Virtual DOM abstraction makes it easier to render to different targets (DOM, Canvas, Native, etc.) by changing the rendering layer.
+</Accordion>
+
+## Next Steps
+
+Now that you understand the Virtual DOM structure, learn about:
+- [Rendering](/concepts/rendering) - How GlyphUI mounts and patches the DOM
+- [Components](/concepts/components) - Building reusable UI with components
+- [API Reference](/api/h) - Complete `h()` function API documentation

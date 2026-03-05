@@ -1,0 +1,427 @@
+---
+title: 'Tic-Tac-Toe'
+description: 'A classic game demonstrating game logic and state updates'
+icon: 'grid'
+---
+
+## Overview
+
+The Tic-Tac-Toe game showcases:
+- Game state management
+- Win condition checking
+- Reducer pattern for state updates
+- Conditional rendering
+- Modular code organization
+
+<Card title="Live Demo" icon="play" href="https://github.com/x0bd/glyphui/tree/main/examples/tictactoe">
+  View the complete source code on GitHub
+</Card>
+
+## What You'll Learn
+
+<CardGroup cols={2}>
+  <Card title="Game Logic" icon="brain">
+    Implementing win detection algorithms
+  </Card>
+  <Card title="Reducer Pattern" icon="rotate">
+    Using reducers for state transitions
+  </Card>
+  <Card title="Modular Code" icon="box">
+    Separating logic from UI
+  </Card>
+  <Card title="Grid Rendering" icon="table-cells">
+    Rendering 2D arrays efficiently
+  </Card>
+</CardGroup>
+
+## Complete Code
+
+### Game Logic (game.js)
+
+```javascript game.js
+export function makeInitialState() {
+  return {
+    board: [
+      [null, null, null],
+      [null, null, null],
+      [null, null, null],
+    ],
+    player: "X",
+    draw: false,
+    winner: null,
+  };
+}
+
+export function markReducer(state, { row, col }) {
+  if (row > 3 || row < 0 || col > 3 || col < 0) {
+    throw new Error("Invalid move");
+  }
+
+  if (state.board[row][col]) {
+    throw new Error("Invalid move");
+  }
+
+  const newBoard = [
+    [...state.board[0]],
+    [...state.board[1]],
+    [...state.board[2]],
+  ];
+  newBoard[row][col] = state.player;
+
+  const newPlayer = state.player === "X" ? "O" : "X";
+  const winner = checkWinner(newBoard, state.player);
+  const draw = !winner && newBoard.every((row) => row.every((cell) => cell));
+
+  return {
+    board: newBoard,
+    player: newPlayer,
+    draw,
+    winner,
+  };
+}
+
+const checkWinner = (board, player) => {
+  // Check rows
+  for (let i = 0; i < 3; i++) {
+    if (checkRow(board, i, player)) {
+      return player;
+    }
+  }
+  
+  // Check columns
+  for (let i = 0; i < 3; i++) {
+    if (checkColumn(board, i, player)) {
+      return player;
+    }
+  }
+  
+  // Check diagonals
+  if (checkMainDiagonal(board, player)) {
+    return player;
+  }
+  
+  if (checkSecondaryDiagonal(board, player)) {
+    return player;
+  }
+
+  return null;
+};
+
+const checkRow = (board, idx, player) => {
+  const row = board[idx];
+  return row.every((cell) => cell === player);
+};
+
+const checkColumn = (board, idx, player) => {
+  const column = [board[0][idx], board[1][idx], board[2][idx]];
+  return column.every((cell) => cell === player);
+};
+
+const checkMainDiagonal = (board, player) => {
+  const diagonal = [board[0][0], board[1][1], board[2][2]];
+  return diagonal.every((cell) => cell === player);
+};
+
+const checkSecondaryDiagonal = (board, player) => {
+  const diagonal = [board[0][2], board[1][1], board[2][0]];
+  return diagonal.every((cell) => cell === player);
+};
+```
+
+### Component (app.js)
+
+```javascript app.js
+import {
+  Component,
+  h,
+  hFragment,
+} from "@glyphui/runtime";
+import { makeInitialState, markReducer } from "./game.js";
+
+class TicTacToeApp extends Component {
+  constructor() {
+    super({}, {
+      initialState: makeInitialState()
+    });
+  }
+  
+  mark(position) {
+    const { row, col } = position;
+    if (row > 3 || row < 0 || col > 3 || col < 0) {
+      return; // Invalid move
+    }
+    
+    if (this.state.board[row][col]) {
+      return; // Cell already marked
+    }
+    
+    this.setState(markReducer(this.state, position));
+  }
+  
+  render(props, state) {
+    return hFragment([
+      this.renderHeader(state),
+      this.renderBoard(state)
+    ]);
+  }
+  
+  renderHeader(state) {
+    if (state.winner) {
+      return h("h3", { class: "win-title" }, [
+        `Player ${state.winner} wins!`,
+      ]);
+    }
+
+    if (state.draw) {
+      return h("h3", { class: "draw-title" }, [`It's a draw!`]);
+    }
+
+    return h("h3", {}, [`It's ${state.player}'s turn!`]);
+  }
+  
+  renderBoard(state) {
+    const freezeBoard = state.winner || state.draw;
+
+    return h("table", { class: freezeBoard ? "frozen" : "" }, [
+      h(
+        "tbody",
+        {},
+        state.board.map((row, i) => this.renderRow(row, i))
+      ),
+    ]);
+  }
+  
+  renderRow(row, i) {
+    return h(
+      "tr",
+      {},
+      row.map((cell, j) => this.renderCell(cell, i, j))
+    );
+  }
+  
+  renderCell(cell, i, j) {
+    const mark = cell
+      ? h("span", { class: "cell-text" }, [cell])
+      : h(
+          "div",
+          {
+            class: "cell",
+            on: { click: () => this.mark({ row: i, col: j }) },
+          },
+          []
+        );
+
+    return h("td", {}, [mark]);
+  }
+}
+
+const game = new TicTacToeApp();
+game.mount(document.body);
+```
+
+## Key Concepts
+
+### 1. Reducer Pattern
+
+A reducer is a pure function that takes state and an action, returning new state:
+
+```javascript
+export function markReducer(state, { row, col }) {
+  // Create new board (immutability)
+  const newBoard = [
+    [...state.board[0]],
+    [...state.board[1]],
+    [...state.board[2]],
+  ];
+  newBoard[row][col] = state.player;
+  
+  // Calculate derived state
+  const winner = checkWinner(newBoard, state.player);
+  const draw = !winner && newBoard.every(row => row.every(cell => cell));
+  
+  // Return new state object
+  return {
+    board: newBoard,
+    player: newPlayer,
+    draw,
+    winner,
+  };
+}
+```
+
+<Note>
+  Reducers should be pure functions with no side effects, always returning new state objects.
+</Note>
+
+### 2. Win Detection
+
+The game checks rows, columns, and diagonals:
+
+```javascript
+const checkWinner = (board, player) => {
+  // Check all rows
+  for (let i = 0; i < 3; i++) {
+    if (checkRow(board, i, player)) return player;
+  }
+  
+  // Check all columns
+  for (let i = 0; i < 3; i++) {
+    if (checkColumn(board, i, player)) return player;
+  }
+  
+  // Check both diagonals
+  if (checkMainDiagonal(board, player)) return player;
+  if (checkSecondaryDiagonal(board, player)) return player;
+  
+  return null;
+};
+```
+
+### 3. Immutable Updates
+
+Always create new arrays/objects instead of mutating:
+
+```javascript
+// ❌ Wrong - mutates original
+state.board[row][col] = player;
+
+// ✅ Correct - creates new board
+const newBoard = [
+  [...state.board[0]],
+  [...state.board[1]],
+  [...state.board[2]],
+];
+newBoard[row][col] = player;
+```
+
+### 4. Grid Rendering
+
+Use nested maps to render 2D arrays:
+
+```javascript
+renderBoard(state) {
+  return h("table", {}, [
+    h("tbody", {},
+      state.board.map((row, i) => 
+        h("tr", {},
+          row.map((cell, j) => 
+            h("td", {}, [this.renderCell(cell, i, j)])
+          )
+        )
+      )
+    )
+  ]);
+}
+```
+
+## Game Flow
+
+<Steps>
+  <Step title="Initial State">
+    Game starts with empty 3x3 board, player X goes first
+  </Step>
+  
+  <Step title="Player Move">
+    Player clicks a cell, triggering `mark()` method
+  </Step>
+  
+  <Step title="State Update">
+    Reducer validates move, updates board, checks for winner
+  </Step>
+  
+  <Step title="Re-render">
+    Component re-renders with new state
+  </Step>
+  
+  <Step title="Game End">
+    If winner or draw detected, board is frozen
+  </Step>
+</Steps>
+
+## Features Demonstrated
+
+<AccordionGroup>
+  <Accordion title="State Management">
+    - Reducer pattern for complex state transitions
+    - Immutable state updates
+    - Derived state (winner, draw)
+  </Accordion>
+  
+  <Accordion title="Game Logic">
+    - Win detection algorithms
+    - Draw detection
+    - Move validation
+    - Player switching
+  </Accordion>
+  
+  <Accordion title="UI Patterns">
+    - Conditional rendering based on game state
+    - Grid rendering with nested maps
+    - Disabling board when game ends
+    - Dynamic styling based on state
+  </Accordion>
+  
+  <Accordion title="Code Organization">
+    - Separation of concerns (logic vs UI)
+    - Reusable helper functions
+    - Clear function naming
+  </Accordion>
+</AccordionGroup>
+
+## Running the Example
+
+<Steps>
+  <Step title="Clone the repository">
+    ```bash
+    git clone https://github.com/x0bd/glyphui.git
+    cd glyphui/examples/tictactoe
+    ```
+  </Step>
+  
+  <Step title="Open in browser">
+    Open `index.html` in your browser:
+    ```bash
+    npx serve .
+    ```
+  </Step>
+  
+  <Step title="Play the game">
+    - Click cells to make moves
+    - Try to get three in a row
+    - Test edge cases (invalid moves, draw)
+  </Step>
+</Steps>
+
+## Enhancements to Try
+
+<CardGroup cols={2}>
+  <Card title="Reset Button" icon="rotate-right">
+    Add a button to reset the game
+  </Card>
+  <Card title="Score Tracking" icon="trophy">
+    Track wins for X and O
+  </Card>
+  <Card title="AI Opponent" icon="robot">
+    Implement computer player
+  </Card>
+  <Card title="Animations" icon="wand-magic-sparkles">
+    Add transition animations
+  </Card>
+</CardGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Memory Game" icon="brain" href="/examples/memory-game">
+    See another game implementation
+  </Card>
+  <Card title="State Management" icon="database" href="/state/global-store">
+    Learn advanced state patterns
+  </Card>
+  <Card title="Reducers" icon="rotate" href="/state/create-app">
+    Deep dive into reducer pattern
+  </Card>
+  <Card title="Events" icon="bolt" href="/concepts/components">
+    Master event handling
+  </Card>
+</CardGroup>

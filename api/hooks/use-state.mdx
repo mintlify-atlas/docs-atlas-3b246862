@@ -1,0 +1,131 @@
+---
+title: useState
+description: Hook for managing state in functional components
+---
+
+## Overview
+
+The `useState` hook allows functional components to have state. It returns the current state value and a function to update it.
+
+## Signature
+
+```javascript
+const [state, setState] = useState(initialState)
+```
+
+## Parameters
+
+<ParamField path="initialState" type="any">
+  The initial state value. If a function is provided, it will be called to compute the initial state (lazy initialization).
+</ParamField>
+
+## Returns
+
+<ResponseField name="state" type="any">
+  The current state value.
+</ResponseField>
+
+<ResponseField name="setState" type="function">
+  A function to update the state. Accepts either a new value or a function that receives the previous state and returns the new state.
+  
+  **Signature**: `setState(newState | ((prevState) => newState))`
+  
+  **Behavior**:
+  - Only triggers re-render if the new state is different from the current state (using `!==` comparison)
+  - Accepts a function for updates based on previous state
+  - Warns if called on unmounted components
+</ResponseField>
+
+## Usage Examples
+
+### Basic State
+
+```javascript
+import { useState } from '@glyphui/runtime';
+
+function Counter() {
+  const [count, setCount] = useState(0);
+  
+  return (
+    <div>
+      <p>Count: {count}</p>
+      <button onClick={() => setCount(count + 1)}>Increment</button>
+    </div>
+  );
+}
+```
+
+### Functional Updates
+
+Use a function when the new state depends on the previous state:
+
+```javascript
+function Counter() {
+  const [count, setCount] = useState(0);
+  
+  const increment = () => {
+    setCount(prevCount => prevCount + 1);
+  };
+  
+  return <button onClick={increment}>Count: {count}</button>;
+}
+```
+
+### Lazy Initialization
+
+Use a function to compute expensive initial state only once:
+
+```javascript
+function ExpensiveComponent() {
+  const [data, setData] = useState(() => {
+    // This runs only on initial render
+    return computeExpensiveValue();
+  });
+  
+  return <div>{data}</div>;
+}
+```
+
+### Object State
+
+```javascript
+function Form() {
+  const [formData, setFormData] = useState({
+    name: '',
+    email: ''
+  });
+  
+  const updateField = (field, value) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+  };
+  
+  return (
+    <form>
+      <input 
+        value={formData.name}
+        onChange={(e) => updateField('name', e.target.value)}
+      />
+      <input 
+        value={formData.email}
+        onChange={(e) => updateField('email', e.target.value)}
+      />
+    </form>
+  );
+}
+```
+
+## Rules and Behavior
+
+1. **Must be called at the top level** - Don't call `useState` inside loops, conditions, or nested functions
+2. **Only in functional components** - Cannot be used in class components
+3. **State updates trigger re-renders** - The component re-renders when state changes
+4. **Strict equality check** - Re-render only occurs if `newState !== currentState`
+5. **Safe updates** - Warns if attempting to update state on unmounted components
+6. **Preserves identity** - The `setState` function has a stable identity and won't change between re-renders
+
+## Implementation Details
+
+- Uses a global hook index to track which hook is being called
+- Stores state in a WeakMap keyed by component instance
+- Supports functional state updates for computing new state from previous state
+- Performs shallow comparison (`!==`) to determine if re-render is needed

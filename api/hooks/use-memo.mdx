@@ -1,0 +1,224 @@
+---
+title: useMemo
+description: Hook for memoizing expensive calculations
+---
+
+## Overview
+
+The `useMemo` hook memoizes the result of an expensive calculation, recomputing it only when dependencies change. This is a performance optimization to avoid expensive calculations on every render.
+
+## Signature
+
+```javascript
+const memoizedValue = useMemo(factory, deps)
+```
+
+## Parameters
+
+<ParamField path="factory" type="function" required>
+  A function that computes and returns the value to be memoized. This function is called during rendering.
+  
+  **Signature**: `() => any`
+</ParamField>
+
+<ParamField path="deps" type="array">
+  An optional dependency array. The factory function re-runs only when one of the dependencies has changed.
+  
+  - **Omit or `null`** - Recalculate on every render
+  - **Empty array `[]`** - Calculate only once on mount
+  - **Array with values** - Recalculate when any value changes
+</ParamField>
+
+## Returns
+
+<ResponseField name="memoizedValue" type="any">
+  The memoized value returned by the factory function. On subsequent renders, returns the cached value unless dependencies have changed.
+</ResponseField>
+
+## Usage Examples
+
+### Expensive Calculation
+
+```javascript
+import { useMemo, useState } from '@glyphui/runtime';
+
+function ProductList({ products }) {
+  const [filter, setFilter] = useState('');
+  
+  // Only recalculate when products or filter changes
+  const filteredProducts = useMemo(() => {
+    console.log('Filtering products...');
+    return products.filter(p => 
+      p.name.toLowerCase().includes(filter.toLowerCase())
+    );
+  }, [products, filter]);
+  
+  return (
+    <div>
+      <input 
+        value={filter}
+        onChange={e => setFilter(e.target.value)}
+        placeholder="Filter products"
+      />
+      {filteredProducts.map(p => <div key={p.id}>{p.name}</div>)}
+    </div>
+  );
+}
+```
+
+### Complex Computation
+
+```javascript
+function Chart({ data }) {
+  const chartData = useMemo(() => {
+    // Expensive data transformation
+    return data.map(item => ({
+      x: calculateX(item),
+      y: calculateY(item),
+      label: formatLabel(item)
+    }));
+  }, [data]);
+  
+  return <ChartComponent data={chartData} />;
+}
+```
+
+### Referential Equality
+
+Use `useMemo` to maintain referential equality for objects/arrays passed as props:
+
+```javascript
+import { useMemo, useState } from '@glyphui/runtime';
+
+function Parent() {
+  const [count, setCount] = useState(0);
+  const [text, setText] = useState('');
+  
+  // This object is recreated only when count changes
+  const config = useMemo(() => ({
+    value: count,
+    doubled: count * 2
+  }), [count]);
+  
+  // Child won't re-render when text changes
+  return (
+    <div>
+      <input value={text} onChange={e => setText(e.target.value)} />
+      <Child config={config} />
+    </div>
+  );
+}
+```
+
+### Memoizing Search Results
+
+```javascript
+function SearchResults({ query, items }) {
+  const results = useMemo(() => {
+    if (!query) return items;
+    
+    const lowerQuery = query.toLowerCase();
+    return items.filter(item =>
+      item.title.toLowerCase().includes(lowerQuery) ||
+      item.description.toLowerCase().includes(lowerQuery)
+    );
+  }, [query, items]);
+  
+  return (
+    <ul>
+      {results.map(item => (
+        <li key={item.id}>{item.title}</li>
+      ))}
+    </ul>
+  );
+}
+```
+
+### Sorting and Filtering
+
+```javascript
+function DataTable({ data, sortBy, filterFn }) {
+  const processedData = useMemo(() => {
+    let result = [...data];
+    
+    // Apply filter
+    if (filterFn) {
+      result = result.filter(filterFn);
+    }
+    
+    // Apply sort
+    if (sortBy) {
+      result.sort((a, b) => a[sortBy] > b[sortBy] ? 1 : -1);
+    }
+    
+    return result;
+  }, [data, sortBy, filterFn]);
+  
+  return (
+    <table>
+      {processedData.map(row => <tr key={row.id}>...</tr>)}
+    </table>
+  );
+}
+```
+
+### Computing Derived State
+
+```javascript
+function ShoppingCart({ items }) {
+  const total = useMemo(() => {
+    return items.reduce((sum, item) => sum + item.price * item.quantity, 0);
+  }, [items]);
+  
+  const itemCount = useMemo(() => {
+    return items.reduce((count, item) => count + item.quantity, 0);
+  }, [items]);
+  
+  return (
+    <div>
+      <p>Items: {itemCount}</p>
+      <p>Total: ${total.toFixed(2)}</p>
+    </div>
+  );
+}
+```
+
+## When to Use useMemo
+
+### Good Use Cases:
+- Expensive calculations that take noticeable time
+- Filtering or transforming large arrays
+- Complex object transformations
+- Maintaining referential equality for dependency arrays
+- Computing derived values from props or state
+
+### Don't Use When:
+- The calculation is cheap (simple arithmetic, string concatenation)
+- The value is used only once in the component
+- Premature optimization without measuring performance
+
+## Rules and Behavior
+
+1. **Synchronous execution** - The factory function runs during render, not after
+2. **Dependency comparison** - Uses strict equality (`!==`) to compare each dependency
+3. **No guaranteed caching** - GlyphUI may discard cached values in the future (though current implementation persists them)
+4. **Must be called at top level** - Don't call `useMemo` inside loops, conditions, or nested functions
+5. **Only in functional components** - Cannot be used in class components
+6. **Pure function** - The factory should be a pure function with no side effects
+
+## Dependency Array Behavior
+
+| Dependencies | When Factory Runs |
+|--------------|-------------------|
+| Not provided or `null` | Every render |
+| `[]` | Once on mount only |
+| `[a, b]` | When `a` or `b` changes |
+
+## Implementation Details
+
+- Factory function is called during component render (synchronous)
+- Dependencies are compared using strict equality (`!==`)
+- Cached value is stored in the component's hooks data
+- Recalculates if dependencies array changes in length or any value changes
+- Errors in factory function are caught and logged; returns `undefined` on error
+- If no dependencies provided, recalculates on every render

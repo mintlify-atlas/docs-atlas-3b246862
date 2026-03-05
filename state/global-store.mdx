@@ -1,0 +1,347 @@
+---
+title: Global Store with createStore
+description: Manage shared state across components using the createStore API
+---
+
+GlyphUI's `createStore` provides a lightweight global state management solution inspired by Zustand. It's perfect for sharing state across multiple components without prop drilling.
+
+## Creating a Store
+
+Create a store with initial state and actions:
+
+```javascript
+import { createStore } from 'glyphui';
+
+const counterStore = createStore((set) => ({
+  // Initial state
+  count: 0,
+  
+  // Actions
+  increment: () => set((state) => ({ count: state.count + 1 })),
+  decrement: () => set((state) => ({ count: state.count - 1 })),
+  reset: () => set({ count: 0 }),
+  incrementBy: (amount) => set((state) => ({ count: state.count + amount }))
+}));
+```
+
+### Store Creation Function
+
+The function you pass to `createStore` receives two arguments:
+
+- **`set`** - Function to update the store state
+- **`get`** - Function to read the current state (optional)
+
+```javascript
+const store = createStore((set, get) => ({
+  count: 0,
+  
+  increment: () => {
+    const currentCount = get().count;
+    set({ count: currentCount + 1 });
+  }
+}));
+```
+
+## Using setState
+
+The `set` function accepts either an object or a function:
+
+### Object Updates
+
+Partial state updates are merged with existing state:
+
+```javascript
+const todoStore = createStore((set) => ({
+  todos: [],
+  filter: 'all',
+  
+  // Merge update - only changes 'filter'
+  setFilter: (filter) => set({ filter })
+}));
+```
+
+### Function Updates
+
+Use a function when you need access to the current state:
+
+```javascript
+const todoStore = createStore((set) => ({
+  todos: [],
+  
+  addTodo: (text) => set((state) => ({
+    todos: [
+      ...state.todos,
+      { id: Date.now(), text, completed: false }
+    ]
+  }))
+}));
+```
+
+### Replace Mode
+
+Pass `true` as the second argument to replace the entire state:
+
+```javascript
+const store = createStore((set) => ({
+  count: 0,
+  name: 'Counter',
+  
+  // Replace the entire state
+  reset: () => set({ count: 0, name: 'Counter' }, true)
+}));
+```
+
+<Note>
+  By default, `set` merges updates with existing state. Use replace mode only when you need to completely replace the state object.
+</Note>
+
+## Store API
+
+A store instance provides these methods:
+
+### getState()
+
+Returns the current state:
+
+```javascript
+const state = counterStore.getState();
+console.log(state.count); // Current count value
+```
+
+### setState(partial, replace)
+
+Updates the store state (same as the `set` function):
+
+```javascript
+// Update from outside the store
+counterStore.setState({ count: 10 });
+
+// Function update
+counterStore.setState((state) => ({ count: state.count + 1 }));
+```
+
+### subscribe(listener)
+
+Subscribes to state changes:
+
+```javascript
+const unsubscribe = counterStore.subscribe((state) => {
+  console.log('State changed:', state);
+});
+
+// Later, unsubscribe
+unsubscribe();
+```
+
+### destroy()
+
+Cleans up the store and removes all listeners:
+
+```javascript
+counterStore.destroy();
+```
+
+## Complete Todo Store Example
+
+```javascript
+import { createStore } from 'glyphui';
+
+const todoStore = createStore((set) => ({
+  // State
+  todos: [],
+  newTodoText: '',
+  filter: 'all',
+  nextId: 1,
+  
+  // Input actions
+  setNewTodoText: (text) => set({ newTodoText: text }),
+  
+  // Todo manipulation actions
+  addTodo: () => set((state) => {
+    if (!state.newTodoText.trim()) return state;
+    
+    return {
+      todos: [
+        ...state.todos,
+        {
+          id: state.nextId,
+          text: state.newTodoText,
+          completed: false,
+          createdAt: Date.now()
+        }
+      ],
+      newTodoText: '',
+      nextId: state.nextId + 1
+    };
+  }),
+  
+  toggleTodo: (id) => set((state) => ({
+    todos: state.todos.map(todo => 
+      todo.id === id ? { ...todo, completed: !todo.completed } : todo
+    )
+  })),
+  
+  removeTodo: (id) => set((state) => ({
+    todos: state.todos.filter(todo => todo.id !== id)
+  })),
+  
+  // Batch actions
+  clearCompleted: () => set((state) => ({
+    todos: state.todos.filter(todo => !todo.completed)
+  })),
+  
+  // Filter actions
+  setFilter: (filter) => set({ filter }),
+  
+  // Computed properties
+  getFilteredTodos: (state) => {
+    switch (state.filter) {
+      case 'active':
+        return state.todos.filter(todo => !todo.completed);
+      case 'completed':
+        return state.todos.filter(todo => todo.completed);
+      default:
+        return state.todos;
+    }
+  },
+  
+  getStats: (state) => {
+    const total = state.todos.length;
+    const completed = state.todos.filter(todo => todo.completed).length;
+    const active = total - completed;
+    
+    return { total, completed, active };
+  }
+}));
+```
+
+## Multiple Stores
+
+Create separate stores for different concerns:
+
+```javascript
+// Counter store
+const counterStore = createStore((set) => ({
+  count: 0,
+  increment: () => set((state) => ({ count: state.count + 1 })),
+  decrement: () => set((state) => ({ count: state.count - 1 }))
+}));
+
+// Theme store
+const themeStore = createStore((set) => ({
+  theme: {
+    color: '#4CAF50',
+    name: 'green'
+  },
+  setTheme: (theme) => set({ theme })
+}));
+
+// User store
+const userStore = createStore((set) => ({
+  user: null,
+  isAuthenticated: false,
+  
+  login: (user) => set({
+    user,
+    isAuthenticated: true
+  }),
+  
+  logout: () => set({
+    user: null,
+    isAuthenticated: false
+  })
+}));
+```
+
+<Note>
+  Separate stores help organize your application by domain. Components can subscribe to only the stores they need.
+</Note>
+
+## Accessing Store Actions
+
+Store actions are regular functions you can call directly:
+
+```javascript
+// Call actions from anywhere
+counterStore.getState().increment();
+counterStore.getState().incrementBy(5);
+
+todoStore.getState().addTodo();
+todoStore.getState().toggleTodo(42);
+```
+
+Or destructure for cleaner code:
+
+```javascript
+const { increment, decrement, reset } = counterStore.getState();
+
+increment();
+increment();
+reset();
+```
+
+## Using Stores in Components
+
+To use a store in components, you need to connect them. See the [connect](/state/connect) documentation for details:
+
+```javascript
+import { Component, connect } from 'glyphui';
+
+class CounterDisplay extends Component {
+  render(props) {
+    const { store } = props;
+    
+    return h('div', {}, [
+      h('p', {}, [`Count: ${store.count}`]),
+      h('button', { on: { click: () => store.increment() } }, ['Increment'])
+    ]);
+  }
+}
+
+// Connect component to store
+const ConnectedCounterDisplay = connect(counterStore)(CounterDisplay);
+```
+
+## Middleware and Persistence
+
+You can add middleware by subscribing to state changes:
+
+```javascript
+// Log all state changes
+todoStore.subscribe((state) => {
+  console.log('State updated:', state);
+});
+
+// Persist to localStorage
+todoStore.subscribe((state) => {
+  localStorage.setItem('todos', JSON.stringify(state.todos));
+});
+
+// Load from localStorage on init
+const savedTodos = localStorage.getItem('todos');
+if (savedTodos) {
+  todoStore.setState({
+    todos: JSON.parse(savedTodos)
+  });
+}
+```
+
+## When to Use Global Stores
+
+Global stores are ideal for:
+
+- **Shared state** - Data needed by multiple components
+- **Application settings** - Theme, locale, user preferences
+- **User authentication** - Login state, user profile
+- **Complex data** - Lists, collections, normalized data
+- **Remote data** - API responses, cached data
+
+<Note>
+  Use [local state](/state/local-state) for component-specific data that doesn't need to be shared.
+</Note>
+
+## Next Steps
+
+- Learn how to [connect components](/state/connect) to stores
+- Review [local state](/state/local-state) for component-specific data
+- Explore the [createApp pattern](/state/create-app) for simple applications

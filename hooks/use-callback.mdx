@@ -1,0 +1,417 @@
+---
+title: useCallback
+description: Memoize callback functions with the useCallback hook to optimize performance
+---
+
+## Overview
+
+The `useCallback` hook returns a memoized callback function. It's useful when passing callbacks to optimized child components that rely on reference equality to prevent unnecessary re-renders.
+
+`useCallback(fn, deps)` is equivalent to `useMemo(() => fn, deps)` - it's a convenience hook specifically for memoizing functions.
+
+## Signature
+
+```javascript
+const memoizedCallback = useCallback(callbackFunction, dependencies);
+```
+
+## Parameters
+
+<ParamField path="callbackFunction" type="function" required>
+  The function you want to memoize. GlyphUI will return the same function instance across re-renders unless the dependencies change.
+  
+  The callback can take any arguments and return any value.
+</ParamField>
+
+<ParamField path="dependencies" type="array">
+  An optional array of dependencies. The callback will only be recreated if one of these dependencies has changed.
+  
+  - **Empty array `[]`**: Callback is created once and never changes
+  - **Array with values**: Callback is recreated when any dependency changes
+  - **Omitted or `null`**: Callback is recreated on every render (defeats the purpose)
+</ParamField>
+
+## Returns
+
+Returns the memoized callback function. The function identity remains stable across re-renders as long as dependencies haven't changed.
+
+## Usage
+
+### Basic Callback Memoization
+
+```javascript
+import { h, useState, useCallback } from './glyphui.js';
+
+const Counter = () => {
+  const [count, setCount] = useState(0);
+  
+  // This callback is recreated on every render
+  const handleClick = () => {
+    setCount(count + 1);
+  };
+  
+  // ✅ Better: This callback is memoized
+  const handleClickMemo = useCallback(() => {
+    setCount(c => c + 1);
+  }, []); // Empty deps - function never changes
+  
+  return h('div', {}, [
+    h('p', {}, [`Count: ${count}`]),
+    h('button', { onclick: handleClickMemo }, ['Increment'])
+  ]);
+};
+```
+
+### With Dependencies
+
+When the callback needs to reference props or state, include them in the dependencies:
+
+```javascript
+const SearchBox = ({ onSearch, category }) => {
+  const [query, setQuery] = useState('');
+  
+  // Callback is recreated when query or category changes
+  const handleSubmit = useCallback((e) => {
+    e.preventDefault();
+    onSearch(query, category);
+  }, [query, category, onSearch]);
+  
+  return h('form', { onsubmit: handleSubmit }, [
+    h('input', {
+      value: query,
+      oninput: (e) => setQuery(e.target.value)
+    }, []),
+    h('button', { type: 'submit' }, ['Search'])
+  ]);
+};
+```
+
+### Preventing Child Re-renders
+
+One of the main benefits of `useCallback` is preventing unnecessary child component re-renders:
+
+```javascript
+const ParentComponent = () => {
+  const [count, setCount] = useState(0);
+  const [name, setName] = useState('Alice');
+  
+  // ❌ Bad: Function is recreated on every render
+  // Child component will re-render every time, even when name doesn't change
+  const handleNameChange = (newName) => {
+    setName(newName);
+  };
+  
+  // ✅ Good: Function identity is stable
+  // Child only re-renders when its props actually change
+  const handleNameChangeMemo = useCallback((newName) => {
+    setName(newName);
+  }, []); // No dependencies needed - uses setter function
+  
+  return h('div', {}, [
+    h('p', {}, [`Count: ${count}`]),
+    h('button', { onclick: () => setCount(count + 1) }, ['Increment']),
+    createComponent(NameEditor, { name, onChange: handleNameChangeMemo })
+  ]);
+};
+```
+
+### Optimizing Event Handlers
+
+```javascript
+const TodoList = ({ todos, onToggle, onDelete }) => {
+  // Create stable callbacks for each todo
+  const createToggleHandler = useCallback((id) => {
+    return () => onToggle(id);
+  }, [onToggle]);
+  
+  const createDeleteHandler = useCallback((id) => {
+    return () => onDelete(id);
+  }, [onDelete]);
+  
+  return h('ul', {}, 
+    todos.map(todo => 
+      h('li', { key: todo.id }, [
+        h('input', {
+          type: 'checkbox',
+          checked: todo.completed,
+          onchange: createToggleHandler(todo.id)
+        }, []),
+        h('span', {}, [todo.text]),
+        h('button', { onclick: createDeleteHandler(todo.id) }, ['Delete'])
+      ])
+    )
+  );
+};
+```
+
+## Practical Example from Source
+
+Here's a real example from the GlyphUI hooks demo (`examples/hooks-demo/hooks-demo.js:116-119`):
+
+```javascript
+const FormComponent = () => {
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [submitted, setSubmitted] = useState(false);
+  
+  const nameInputRef = useRef(null);
+  
+  // Focus the name input when component mounts
+  useEffect(() => {
+    if (nameInputRef.current) {
+      nameInputRef.current.focus();
+    }
+  }, []);
+  
+  // Memoize the submit handler
+  const handleSubmit = useCallback((e) => {
+    e.preventDefault();
+    setSubmitted(true);
+  }, []); // No dependencies - just sets state
+  
+  return h('div', {}, [
+    h('h2', {}, ['useRef & Form Demo']),
+    submitted
+      ? h('div', {}, [
+          h('p', {}, [`Thank you, ${name}!`]),
+          h('p', {}, [`We'll contact you at ${email}`])
+        ])
+      : h('form', { onsubmit: handleSubmit }, [
+          h('input', {
+            type: 'text',
+            value: name,
+            oninput: (e) => setName(e.target.value),
+            ref: (el) => (nameInputRef.current = el)
+          }, []),
+          h('input', {
+            type: 'email',
+            value: email,
+            oninput: (e) => setEmail(e.target.value)
+          }, []),
+          h('button', { type: 'submit' }, ['Submit'])
+        ])
+  ]);
+};
+```
+
+## How It Works
+
+The `useCallback` hook is implemented in `packages/runtime/src/hooks.js:379-386`. It's a thin wrapper around `useMemo`:
+
+```javascript
+export function useCallback(callback, deps) {
+  if (typeof callback !== 'function') {
+    console.error('useCallback requires a function as its first argument');
+    return () => {};
+  }
+  
+  return useMemo(() => callback, deps);
+}
+```
+
+Instead of memoizing a computed value, it memoizes the function itself:
+- The factory function passed to `useMemo` simply returns the callback
+- Dependencies work the same way as in `useMemo`
+- Function identity is preserved until dependencies change
+
+## useCallback vs useMemo
+
+Both hooks serve similar purposes but for different value types:
+
+```javascript
+// These are equivalent:
+const memoizedCallback = useCallback(() => {
+  doSomething(a, b);
+}, [a, b]);
+
+const memoizedCallback = useMemo(() => {
+  return () => {
+    doSomething(a, b);
+  };
+}, [a, b]);
+
+// Use useCallback for functions:
+const handleClick = useCallback(() => {...}, []);
+
+// Use useMemo for computed values:
+const expensiveValue = useMemo(() => computeExpensiveValue(), []);
+```
+
+## When to Use useCallback
+
+### Good Use Cases
+
+✅ **Passing callbacks to optimized child components**
+```javascript
+const onChange = useCallback((value) => {
+  updateState(value);
+}, []);
+
+return createComponent(MemoizedChild, { onChange });
+```
+
+✅ **Callbacks in dependency arrays**
+```javascript
+const fetchData = useCallback(() => {
+  return fetch(`/api/${userId}`);
+}, [userId]);
+
+useEffect(() => {
+  fetchData().then(setData);
+}, [fetchData]); // Stable reference prevents unnecessary fetches
+```
+
+✅ **Custom hooks returning callbacks**
+```javascript
+const useFormHandler = () => {
+  const [values, setValues] = useState({});
+  
+  const handleChange = useCallback((name, value) => {
+    setValues(v => ({ ...v, [name]: value }));
+  }, []);
+  
+  return { values, handleChange };
+};
+```
+
+### When NOT to Use useCallback
+
+❌ **Simple inline handlers**
+```javascript
+// Don't do this for simple handlers:
+const handleClick = useCallback(() => {
+  console.log('clicked');
+}, []);
+
+// Just use inline:
+onclick: () => console.log('clicked')
+```
+
+❌ **When children aren't memoized**
+```javascript
+// If the child component isn't memoized, useCallback provides no benefit
+const onClick = useCallback(() => {...}, []);
+
+return createComponent(RegularChild, { onClick });
+// RegularChild re-renders anyway on parent re-render
+```
+
+❌ **Inside loops or conditions** (violates Rules of Hooks)
+```javascript
+// ❌ Never do this!
+for (let item of items) {
+  const handler = useCallback(() => {...}, []); // Error!
+}
+```
+
+## Common Patterns
+
+### Functional Updates to Avoid Dependencies
+
+```javascript
+const Counter = () => {
+  const [count, setCount] = useState(0);
+  
+  // ✅ Good: No dependencies needed
+  const increment = useCallback(() => {
+    setCount(c => c + 1); // Functional update
+  }, []);
+  
+  // ❌ Less optimal: Requires count in dependencies
+  const incrementBad = useCallback(() => {
+    setCount(count + 1);
+  }, [count]); // Callback recreated every time count changes
+  
+  return h('button', { onclick: increment }, ['Increment']);
+};
+```
+
+### Combining with useRef
+
+```javascript
+const Component = ({ onUpdate }) => {
+  const onUpdateRef = useRef(onUpdate);
+  
+  // Keep ref updated
+  useEffect(() => {
+    onUpdateRef.current = onUpdate;
+  });
+  
+  // Stable callback that always calls latest onUpdate
+  const handleUpdate = useCallback((value) => {
+    onUpdateRef.current(value);
+  }, []); // No dependencies!
+  
+  return h('input', { onchange: (e) => handleUpdate(e.target.value) }, []);
+};
+```
+
+### Debounced Callbacks
+
+```javascript
+const SearchInput = ({ onSearch }) => {
+  const [query, setQuery] = useState('');
+  
+  const debouncedSearch = useCallback(
+    debounce((value) => onSearch(value), 500),
+    [onSearch]
+  );
+  
+  const handleInput = useCallback((e) => {
+    const value = e.target.value;
+    setQuery(value);
+    debouncedSearch(value);
+  }, [debouncedSearch]);
+  
+  return h('input', { value: query, oninput: handleInput }, []);
+};
+```
+
+## Performance Considerations
+
+Like `useMemo`, `useCallback` has overhead:
+- Stores the function and dependencies
+- Compares dependencies on each render
+
+Only use `useCallback` when:
+1. The callback is passed to a memoized child component
+2. The callback is used in a dependency array of another hook
+3. The callback creation itself is expensive (rare)
+
+Don't use it everywhere by default - measure first!
+
+## Dependency Best Practices
+
+### Include All Used Values
+
+```javascript
+// ❌ Bad: Missing userId dependency
+const fetchUser = useCallback(() => {
+  fetch(`/api/users/${userId}`);
+}, []);
+
+// ✅ Good: All dependencies included
+const fetchUser = useCallback(() => {
+  fetch(`/api/users/${userId}`);
+}, [userId]);
+```
+
+### Avoid Object/Array Dependencies
+
+```javascript
+// ❌ Bad: Object dependency
+const handler = useCallback(() => {
+  process(config);
+}, [config]); // Recreated whenever config object changes
+
+// ✅ Better: Depend on specific properties
+const handler = useCallback(() => {
+  process({ theme: config.theme, locale: config.locale });
+}, [config.theme, config.locale]);
+```
+
+## Related Hooks
+
+- [useMemo](/hooks/use-memo) - For memoizing computed values instead of functions
+- [useRef](/hooks/use-ref) - Can store callbacks without triggering re-renders
+- [useEffect](/hooks/use-effect) - Often uses memoized callbacks in dependency arrays

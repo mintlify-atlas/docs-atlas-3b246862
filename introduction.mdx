@@ -1,0 +1,112 @@
+---
+title: Introduction
+description: Learn how modern frontend frameworks work by building one from scratch
+---
+
+# Welcome to GlyphUI
+
+GlyphUI is a lightweight JavaScript framework built from the ground up to demystify how popular frontend frameworks like React, Vue, and Svelte operate under the hood. By building a framework from scratch, we gain deep insights into core concepts like virtual DOM diffing, component lifecycle, state management, lazy loading, and more.
+
+## What is GlyphUI?
+
+GlyphUI is an educational framework that implements the fundamental concepts found in modern frontend frameworks. It's designed to help developers understand:
+
+- How virtual DOM rendering and diffing algorithms work
+- Component lifecycle management and composition
+- State management patterns and global stores
+- Lazy loading and code splitting strategies
+- Event handling and cleanup mechanisms
+
+<Note>
+GlyphUI is built for learning and exploration. While it implements production-ready patterns, it's optimized for understanding rather than production use.
+</Note>
+
+## Key Features
+
+<CardGroup cols={2}>
+  <Card title="Virtual DOM" icon="diagram-project" href="/concepts/virtual-dom">
+    Efficient rendering with a lightweight virtual DOM and reconciliation algorithm
+  </Card>
+  <Card title="Components" icon="cubes" href="/concepts/components">
+    Build UIs with class-based and functional components
+  </Card>
+  <Card title="Hooks" icon="link" href="/hooks/overview">
+    React-like hooks API for state and side effects
+  </Card>
+  <Card title="State Management" icon="database" href="/state/global-store">
+    Zustand-inspired global state with createStore and connect
+  </Card>
+  <Card title="Lazy Loading" icon="spinner" href="/advanced/lazy-loading">
+    Code splitting with lazy() and Suspense components
+  </Card>
+  <Card title="Slots" icon="puzzle-piece" href="/components/slots">
+    Content projection for flexible component design
+  </Card>
+</CardGroup>
+
+## Quick Example
+
+Here's a simple counter component to give you a taste of GlyphUI:
+
+```javascript
+import { Component, h } from "./packages/runtime/dist/glyphui.js";
+
+class Counter extends Component {
+  constructor() {
+    super({}, { initialState: { count: 0 } });
+  }
+
+  increment() {
+    this.setState({ count: this.state.count + 1 });
+  }
+
+  render(props, state) {
+    return h("div", {}, [
+      h("p", {}, [`Count: ${state.count}`]),
+      h("button", { on: { click: () => this.increment() } }, ["Increment"]),
+    ]);
+  }
+}
+```
+
+## Get Started
+
+<CardGroup cols={2}>
+  <Card title="Installation" icon="download" href="/installation">
+    Set up GlyphUI in your project
+  </Card>
+  <Card title="Quickstart" icon="rocket" href="/quickstart">
+    Build your first GlyphUI application
+  </Card>
+  <Card title="Core Concepts" icon="book" href="/concepts/virtual-dom">
+    Understand the fundamentals
+  </Card>
+  <Card title="Examples" icon="code" href="/examples/counter">
+    Explore real-world examples
+  </Card>
+</CardGroup>
+
+## Why GlyphUI?
+
+Modern frontend frameworks can feel like magic. GlyphUI removes the mystery by:
+
+- **Teaching by doing**: Learn by exploring a complete, working implementation
+- **Clear code**: Every feature is implemented with readability in mind
+- **Progressive complexity**: Start simple and dig deeper as you learn
+- **Real patterns**: Implements the same patterns used by React, Vue, and Svelte
+
+Whether you're preparing for technical interviews, building your own framework, or simply curious about how the tools you use every day actually work, GlyphUI provides a hands-on learning experience.
+
+## What You'll Learn
+
+By exploring GlyphUI, you'll understand:
+
+- Virtual DOM algorithms and diffing strategies
+- Component rendering lifecycle and optimization
+- Reconciliation and efficient DOM updates
+- State management architectures
+- Event delegation and cleanup patterns
+- Lazy loading and code splitting techniques
+- Hooks implementation and closure management
+
+Ready to dive in? Start with [Installation](/installation) to set up your development environment.

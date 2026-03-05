@@ -1,0 +1,241 @@
+---
+title: 'Slots API'
+description: 'Content projection pattern for flexible component composition'
+---
+
+## Overview
+
+The Slots API enables parent components to inject content into child components at designated locations, similar to Vue's slots or web component slots.
+
+## Functions
+
+### createSlot()
+
+Creates a slot where parent components can inject content.
+
+```javascript
+function createSlot(name, props, children)
+```
+
+<ParamField path="name" type="string" default="default">
+  The name of the slot. Use "default" for the primary content slot.
+</ParamField>
+
+<ParamField path="props" type="Object" default="{}">
+  Additional properties for the slot element.
+</ParamField>
+
+<ParamField path="children" type="Array" default="[]">
+  Default content to display if no slot content is provided by the parent.
+</ParamField>
+
+<ResponseField name="return" type="Object">
+  A virtual DOM node representing the slot with internal slot markers.
+</ResponseField>
+
+### createSlotContent()
+
+Creates content to be inserted into a named slot.
+
+```javascript
+function createSlotContent(slotName, children)
+```
+
+<ParamField path="slotName" type="string" default="default">
+  The name of the target slot where this content should be inserted.
+</ParamField>
+
+<ParamField path="children" type="Array" default="[]">
+  Content elements to insert into the slot.
+</ParamField>
+
+<ResponseField name="return" type="Object">
+  A virtual DOM node with slot targeting information.
+</ResponseField>
+
+## Complete Example
+
+### Creating a Slotted Component
+
+```javascript
+import { Component, h } from 'glyphui';
+import { createSlot, extractSlotContents, resolveSlots } from 'glyphui/slots';
+
+class Card extends Component {
+  render(props, state) {
+    // Extract slot contents from children
+    const slots = extractSlotContents(props.children || []);
+    
+    // Define component structure with slots
+    const template = h('div', { class: 'card' }, [
+      h('div', { class: 'card-header' }, [
+        createSlot('header', {}, [
+          h('h3', {}, ['Default Title'])
+        ])
+      ]),
+      h('div', { class: 'card-body' }, [
+        createSlot('default', {}, [
+          h('p', {}, ['Default content'])
+        ])
+      ]),
+      h('div', { class: 'card-footer' }, [
+        createSlot('footer')
+      ])
+    ]);
+    
+    // Resolve slots with provided content
+    return resolveSlots(template, slots);
+  }
+}
+```
+
+### Using the Slotted Component
+
+```javascript
+import { h } from 'glyphui';
+import { createSlotContent } from 'glyphui/slots';
+import Card from './Card.js';
+
+function App() {
+  return h(Card, {}, [
+    // Content for named slot
+    createSlotContent('header', [
+      h('h2', {}, ['Custom Header']),
+      h('span', { class: 'badge' }, ['New'])
+    ]),
+    
+    // Default slot content (no createSlotContent wrapper needed)
+    h('p', {}, ['This is the main card content.']),
+    h('p', {}, ['It goes into the default slot.']),
+    
+    // Content for footer slot
+    createSlotContent('footer', [
+      h('button', {}, ['Action'])
+    ])
+  ]);
+}
+```
+
+## Slot Types
+
+### Default Slot
+
+The unnamed slot that receives content not assigned to named slots:
+
+```javascript
+// In component
+createSlot('default', {}, [h('p', {}, ['Fallback'])])
+
+// Usage - content automatically goes to default slot
+h(MyComponent, {}, [
+  h('p', {}, ['This goes to default slot'])
+])
+```
+
+### Named Slots
+
+Explicitly named slots for specific content:
+
+```javascript
+// In component
+createSlot('header')
+createSlot('footer')
+
+// Usage - target specific slots
+h(MyComponent, {}, [
+  createSlotContent('header', [h('h1', {}, ['Title'])]),
+  createSlotContent('footer', [h('p', {}, ['Footer text'])])
+])
+```
+
+## Helper Functions
+
+### extractSlotContents()
+
+Extracts slot contents from children array and organizes them by slot name.
+
+```javascript
+import { extractSlotContents } from 'glyphui/slots';
+
+const slots = extractSlotContents(props.children);
+// Returns: { default: [...], header: [...], footer: [...] }
+```
+
+### resolveSlots()
+
+Replaces slot elements with their corresponding content or default content.
+
+```javascript
+import { resolveSlots } from 'glyphui/slots';
+
+const template = h('div', {}, [createSlot('default')]);
+const slots = { default: [h('p', {}, ['Content'])] };
+const resolved = resolveSlots(template, slots);
+```
+
+## Patterns
+
+### Conditional Slots
+
+Only render slot sections when content is provided:
+
+```javascript
+render(props, state) {
+  const slots = extractSlotContents(props.children || []);
+  const hasFooter = slots.footer && slots.footer.length > 0;
+  
+  const template = h('div', { class: 'card' }, [
+    h('div', { class: 'card-body' }, [
+      createSlot('default')
+    ]),
+    hasFooter ? h('div', { class: 'card-footer' }, [
+      createSlot('footer')
+    ]) : null
+  ].filter(Boolean));
+  
+  return resolveSlots(template, slots);
+}
+```
+
+### Scoped Slot Data
+
+Pass data to slot content by using wrapper components:
+
+```javascript
+class DataList extends Component {
+  render(props, state) {
+    const slots = extractSlotContents(props.children || []);
+    
+    const template = h('ul', {}, 
+      props.items.map(item => 
+        h('li', { key: item.id }, [
+          createSlot('item', { item }, [
+            h('span', {}, [item.name])
+          ])
+        ])
+      )
+    );
+    
+    return resolveSlots(template, slots);
+  }
+}
+```
+
+### Multiple Default Contents
+
+Provide rich fallback content:
+
+```javascript
+createSlot('sidebar', {}, [
+  h('h3', {}, ['Default Sidebar']),
+  h('ul', {}, [
+    h('li', {}, ['Item 1']),
+    h('li', {}, ['Item 2'])
+  ])
+])
+```
+
+## See Also
+
+- [Component](/api/component) - Base component class
+- [h()](/api/h) - Create virtual DOM nodes

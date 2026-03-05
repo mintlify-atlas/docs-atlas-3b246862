@@ -1,0 +1,477 @@
+---
+title: 'Pomodoro Timer'
+description: 'A productivity timer with hooks, effects, and browser notifications'
+icon: 'clock'
+---
+
+## Overview
+
+The Pomodoro Timer is a full-featured productivity app demonstrating:
+- Functional components with hooks
+- `useState` and `useEffect` hooks
+- Timer implementation with intervals
+- Browser notifications API
+- Theme switching
+- Settings management
+
+<Card title="Live Demo" icon="play" href="https://github.com/x0bd/glyphui/tree/main/examples/pomodoro-timer">
+  View the complete source code on GitHub
+</Card>
+
+## What You'll Learn
+
+<CardGroup cols={2}>
+  <Card title="Hooks" icon="fish-fins">
+    Using useState and useEffect
+  </Card>
+  <Card title="Side Effects" icon="bolt">
+    Managing timers and intervals
+  </Card>
+  <Card title="Browser APIs" icon="bell">
+    Working with notifications
+  </Card>
+  <Card title="Complex State" icon="gears">
+    Managing multiple related states
+  </Card>
+</CardGroup>
+
+## Complete Code
+
+### Timer Component with Hooks
+
+```javascript timer.js
+import {
+  h,
+  createComponent,
+  useState,
+  useEffect,
+  createApp,
+} from "@glyphui/runtime";
+
+const formatTime = (seconds) => {
+  const mins = Math.floor(seconds / 60);
+  const secs = seconds % 60;
+  return `${mins.toString().padStart(2, "0")}:${secs
+    .toString()
+    .padStart(2, "0")}`;
+};
+
+const Timer = () => {
+  // State
+  const [workTime, setWorkTime] = useState(25 * 60);
+  const [breakTime, setBreakTime] = useState(5 * 60);
+  const [timeLeft, setTimeLeft] = useState(workTime);
+  const [isActive, setIsActive] = useState(false);
+  const [isBreak, setIsBreak] = useState(false);
+  const [workSessions, setWorkSessions] = useState(0);
+  const [breakSessions, setBreakSessions] = useState(0);
+  const [showSettings, setShowSettings] = useState(false);
+  const [notificationsEnabled, setNotificationsEnabled] = useState(false);
+  const [theme, setTheme] = useState("light");
+  const [workMinutes, setWorkMinutes] = useState(25);
+  const [breakMinutes, setBreakMinutes] = useState(5);
+
+  const totalTime = isBreak ? breakTime : workTime;
+  const progress = ((totalTime - timeLeft) / totalTime) * 100;
+
+  // Theme effect
+  useEffect(() => {
+    document.body.setAttribute("data-theme", theme);
+  }, [theme]);
+
+  // Timer effect
+  useEffect(() => {
+    let interval = null;
+
+    if (isActive && timeLeft > 0) {
+      interval = setInterval(() => {
+        setTimeLeft(timeLeft - 1);
+      }, 1000);
+    } else if (isActive && timeLeft === 0) {
+      if (isBreak) {
+        setBreakSessions(breakSessions + 1);
+        setIsBreak(false);
+        setTimeLeft(workTime);
+        if (notificationsEnabled) {
+          notify("Break finished", "Time to focus!");
+        }
+      } else {
+        setWorkSessions(workSessions + 1);
+        setIsBreak(true);
+        setTimeLeft(breakTime);
+        if (notificationsEnabled) {
+          notify("Work session completed", "Time for a break!");
+        }
+      }
+    }
+
+    return () => clearInterval(interval);
+  }, [isActive, timeLeft, isBreak, workTime, breakTime]);
+
+  const toggleTimer = () => {
+    setIsActive(!isActive);
+  };
+
+  const resetTimer = () => {
+    setIsActive(false);
+    setTimeLeft(isBreak ? breakTime : workTime);
+  };
+
+  const applySettings = (e) => {
+    e.preventDefault();
+    const newWorkTime = workMinutes * 60;
+    const newBreakTime = breakMinutes * 60;
+    setWorkTime(newWorkTime);
+    setBreakTime(newBreakTime);
+    if (!isActive) {
+      setTimeLeft(isBreak ? newBreakTime : newWorkTime);
+    }
+    setShowSettings(false);
+  };
+
+  const toggleNotifications = () => {
+    if (!notificationsEnabled && "Notification" in window) {
+      Notification.requestPermission().then((permission) => {
+        if (permission === "granted") {
+          setNotificationsEnabled(true);
+        }
+      });
+    } else {
+      setNotificationsEnabled(!notificationsEnabled);
+    }
+  };
+
+  const notify = (title, body) => {
+    if ("Notification" in window && Notification.permission === "granted") {
+      new Notification(title, { body });
+    }
+  };
+
+  const toggleTheme = () => {
+    setTheme(theme === "light" ? "dark" : "light");
+  };
+
+  return h("div", {}, [
+    // Timer display
+    h("div", { class: `timer-card ${isBreak ? "break" : ""}` }, [
+      h("div", { class: "timer-label" }, [
+        isBreak ? "Break Time" : "Focus Time",
+      ]),
+      h("div", { class: `timer-display ${isBreak ? "break" : ""}` }, [
+        formatTime(timeLeft),
+      ]),
+      h(
+        "div",
+        {
+          class: `timer-progress ${isBreak ? "break" : ""}`,
+          style: { width: `${progress}%` },
+        },
+        []
+      ),
+    ]),
+
+    // Controls
+    h("div", { class: "controls" }, [
+      h(
+        "button",
+        {
+          class: "btn-primary",
+          on: { click: toggleTimer },
+        },
+        [
+          isActive ? createComponent(PauseIcon) : createComponent(PlayIcon),
+          isActive ? "Pause" : "Start",
+        ]
+      ),
+      h(
+        "button",
+        {
+          class: "btn-secondary",
+          on: { click: resetTimer },
+        },
+        [createComponent(ResetIcon), "Reset"]
+      ),
+      h(
+        "button",
+        {
+          class: "btn-secondary",
+          on: { click: () => setShowSettings(!showSettings) },
+        },
+        ["Settings"]
+      ),
+      h(
+        "button",
+        {
+          class: "theme-toggle",
+          on: { click: toggleTheme },
+        },
+        [
+          theme === "light"
+            ? createComponent(MoonIcon)
+            : createComponent(SunIcon),
+        ]
+      ),
+    ]),
+
+    // Settings panel
+    showSettings &&
+      h("div", { class: "settings-card" }, [
+        h("div", { class: "settings-title" }, ["Timer Settings"]),
+        h(
+          "form",
+          {
+            class: "settings-form",
+            on: { submit: applySettings },
+          },
+          [
+            h("div", { class: "form-group" }, [
+              h("label", { for: "workTime" }, ["Work Minutes"]),
+              h(
+                "input",
+                {
+                  id: "workTime",
+                  type: "number",
+                  min: "1",
+                  max: "60",
+                  value: workMinutes,
+                  on: {
+                    input: (e) =>
+                      setWorkMinutes(parseInt(e.target.value) || 25),
+                  },
+                },
+                []
+              ),
+            ]),
+            h("div", { class: "form-group" }, [
+              h("label", { for: "breakTime" }, ["Break Minutes"]),
+              h(
+                "input",
+                {
+                  id: "breakTime",
+                  type: "number",
+                  min: "1",
+                  max: "30",
+                  value: breakMinutes,
+                  on: {
+                    input: (e) =>
+                      setBreakMinutes(parseInt(e.target.value) || 5),
+                  },
+                },
+                []
+              ),
+            ]),
+            h(
+              "button",
+              {
+                class: "btn-primary",
+                type: "submit",
+              },
+              ["Apply Settings"]
+            ),
+          ]
+        ),
+        h("div", { class: "notification-toggle" }, [
+          h("label", { class: "toggle-switch" }, [
+            h(
+              "input",
+              {
+                type: "checkbox",
+                checked: notificationsEnabled,
+                on: { change: toggleNotifications },
+              },
+              []
+            ),
+            h("span", { class: "toggle-slider" }, []),
+          ]),
+          "Enable Notifications",
+        ]),
+      ]),
+
+    // Session stats
+    h("div", { class: "sessions-card" }, [
+      h("h3", { class: "sessions-title" }, ["Session Stats"]),
+      h("div", { class: "sessions-counter" }, [
+        h("div", { class: "counter-item" }, [
+          h("div", { class: "counter-value" }, [workSessions]),
+          h("div", { class: "counter-label" }, ["Work Sessions"]),
+        ]),
+        h("div", { class: "counter-item" }, [
+          h("div", { class: "counter-value break" }, [breakSessions]),
+          h("div", { class: "counter-label" }, ["Break Sessions"]),
+        ]),
+      ]),
+    ]),
+  ]);
+};
+
+const app = createApp({
+  view: () => createComponent(Timer),
+});
+
+app.mount(document.getElementById("app"));
+```
+
+## Key Concepts
+
+### 1. useState Hook
+
+Manage component state functionally:
+
+```javascript
+const [timeLeft, setTimeLeft] = useState(25 * 60);
+const [isActive, setIsActive] = useState(false);
+```
+
+<Note>
+  Unlike class components, hooks let you split state into multiple independent pieces.
+</Note>
+
+### 2. useEffect Hook
+
+Handle side effects like timers:
+
+```javascript
+useEffect(() => {
+  let interval = null;
+  
+  if (isActive && timeLeft > 0) {
+    interval = setInterval(() => {
+      setTimeLeft(timeLeft - 1);
+    }, 1000);
+  }
+  
+  return () => clearInterval(interval); // Cleanup
+}, [isActive, timeLeft]); // Dependencies
+```
+
+The effect runs when dependencies change, and the cleanup function runs before the next effect.
+
+### 3. Browser Notifications
+
+Request permission and show notifications:
+
+```javascript
+const toggleNotifications = () => {
+  if ("Notification" in window) {
+    Notification.requestPermission().then((permission) => {
+      if (permission === "granted") {
+        setNotificationsEnabled(true);
+      }
+    });
+  }
+};
+
+const notify = (title, body) => {
+  if (Notification.permission === "granted") {
+    new Notification(title, { body });
+  }
+};
+```
+
+### 4. Progress Calculation
+
+Calculate progress as a percentage:
+
+```javascript
+const totalTime = isBreak ? breakTime : workTime;
+const progress = ((totalTime - timeLeft) / totalTime) * 100;
+```
+
+## Features Demonstrated
+
+<AccordionGroup>
+  <Accordion title="Timer Management">
+    - Work/break cycle with automatic switching
+    - Start, pause, and reset controls
+    - Configurable work and break durations
+    - Progress bar visualization
+  </Accordion>
+  
+  <Accordion title="State Management">
+    - Multiple useState hooks for different concerns
+    - Derived state (progress calculation)
+    - Persistent settings within session
+  </Accordion>
+  
+  <Accordion title="Side Effects">
+    - setInterval for countdown timer
+    - Proper cleanup to prevent memory leaks
+    - Effect dependencies for optimal re-runs
+    - DOM manipulation for theme
+  </Accordion>
+  
+  <Accordion title="User Experience">
+    - Visual feedback with colors
+    - Browser notifications at session end
+    - Theme switching (light/dark)
+    - Session statistics tracking
+  </Accordion>
+</AccordionGroup>
+
+## Running the Example
+
+<Steps>
+  <Step title="Clone the repository">
+    ```bash
+    git clone https://github.com/x0bd/glyphui.git
+    cd glyphui/examples/pomodoro-timer
+    ```
+  </Step>
+  
+  <Step title="Open in browser">
+    Open `index.html` in your browser:
+    ```bash
+    npx serve .
+    ```
+  </Step>
+  
+  <Step title="Start a session">
+    - Click Start to begin a work session
+    - Watch the timer count down
+    - Wait for automatic break transition
+    - Try adjusting settings
+  </Step>
+  
+  <Step title="Enable notifications">
+    - Toggle the notifications setting
+    - Grant permission when prompted
+    - Complete a session to see notification
+  </Step>
+</Steps>
+
+## Best Practices
+
+<Warning>
+  Always clean up intervals and timeouts in useEffect cleanup functions to prevent memory leaks:
+  
+  ```javascript
+  return () => clearInterval(interval);
+  ```
+</Warning>
+
+<Tip>
+  Use dependency arrays carefully. Include all values from the component scope that the effect uses:
+  
+  ```javascript
+  useEffect(() => {
+    // uses isActive and timeLeft
+  }, [isActive, timeLeft]);
+  ```
+</Tip>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Hooks Guide" icon="fish-fins" href="/hooks/overview">
+    Learn all about hooks in GlyphUI
+  </Card>
+  <Card title="Tic-Tac-Toe" icon="grid" href="/examples/tic-tac-toe">
+    See game logic implementation
+  </Card>
+  <Card title="useEffect API" icon="book" href="/api/hooks/use-effect">
+    Detailed useEffect documentation
+  </Card>
+  <Card title="useState API" icon="book" href="/api/hooks/use-state">
+    Detailed useState documentation
+  </Card>
+</CardGroup>

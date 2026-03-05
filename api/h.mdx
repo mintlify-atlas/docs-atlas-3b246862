@@ -1,0 +1,171 @@
+---
+title: h()
+description: Hypertext function for creating virtual DOM elements
+---
+
+# h()
+
+The hypertext function creates a virtual node representing a DOM element. It's the core function for building UIs in GlyphUI.
+
+## Signature
+
+```javascript
+h(tag, props, children)
+```
+
+## Parameters
+
+<ParamField path="tag" type="string" required>
+  The HTML tag name of the element (e.g., 'div', 'span', 'button')
+</ParamField>
+
+<ParamField path="props" type="object" default="{}">
+  Properties to add to the element as attributes. Supports special props:
+  
+  - **`class`**: A string or array of strings for the element's class list
+  - **`style`**: An object containing CSS properties
+  - **`on`**: An object containing event listeners (e.g., `{ click: handleClick }`)
+  - **`key`**: A unique identifier for efficient list rendering (not rendered as an attribute)
+</ParamField>
+
+<ParamField path="children" type="array" default="[]">
+  Child nodes to add to the element. Strings are automatically converted to text nodes using `hString()`.
+</ParamField>
+
+## Return Value
+
+<ResponseField name="vnode" type="object">
+  Returns a virtual node object with the following structure:
+  
+  ```javascript
+  {
+    tag: string,
+    props: object,
+    children: array,
+    type: DOM_TYPES.ELEMENT
+  }
+  ```
+</ResponseField>
+
+## Examples
+
+### Basic Element
+
+```javascript
+import { h } from '@glyphui/runtime'
+
+const button = h('button', { class: 'btn-primary' }, ['Click me'])
+```
+
+### Element with Event Listeners
+
+```javascript
+const button = h(
+  'button',
+  {
+    class: 'btn',
+    on: {
+      click: () => console.log('Clicked!')
+    }
+  },
+  ['Click me']
+)
+```
+
+### Element with Styles
+
+```javascript
+const div = h(
+  'div',
+  {
+    style: {
+      backgroundColor: 'blue',
+      padding: '10px'
+    }
+  },
+  ['Styled content']
+)
+```
+
+### Nested Elements
+
+```javascript
+const card = h('div', { class: 'card' }, [
+  h('h2', {}, ['Title']),
+  h('p', {}, ['This is some content'])
+])
+```
+
+## DOM Types
+
+GlyphUI defines the following DOM types:
+
+```javascript
+const DOM_TYPES = {
+  TEXT: 'text',
+  ELEMENT: 'element',
+  FRAGMENT: 'fragment'
+}
+```
+
+## Related Functions
+
+### hString()
+
+Creates a text virtual node.
+
+**Signature:**
+```javascript
+hString(str)
+```
+
+**Parameters:**
+- `str` (string): The text content
+
+**Returns:** A virtual node object:
+```javascript
+{
+  type: DOM_TYPES.TEXT,
+  value: string
+}
+```
+
+**Example:**
+```javascript
+const textNode = hString('Hello world')
+```
+
+### hFragment()
+
+Wraps virtual nodes in a fragment (similar to React.Fragment). Useful for returning multiple root elements.
+
+**Signature:**
+```javascript
+hFragment(vNodes)
+```
+
+**Parameters:**
+- `vNodes` (array): Array of virtual nodes to wrap. Strings are automatically converted to text nodes.
+
+**Returns:** A virtual node object:
+```javascript
+{
+  type: DOM_TYPES.FRAGMENT,
+  children: array
+}
+```
+
+**Example:**
+```javascript
+const fragment = hFragment([
+  h('h1', {}, ['Title']),
+  h('p', {}, ['Paragraph 1']),
+  h('p', {}, ['Paragraph 2'])
+])
+```
+
+## Notes
+
+- Children that are `null` or `undefined` are automatically filtered out
+- String children are automatically converted to text nodes using `hString()`
+- The `key` prop is used internally for efficient list rendering and is not added as a DOM attribute

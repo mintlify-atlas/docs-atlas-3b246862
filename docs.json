@@ -1,122 +1,141 @@
 {
   "$schema": "https://mintlify.com/docs.json",
-  "theme": "mint",
-  "name": "Mint Starter Kit",
+  "name": "GlyphUI",
+  "theme": "palm",
   "colors": {
-    "primary": "#16A34A",
-    "light": "#07C983",
-    "dark": "#15803D"
+    "primary": "#6366f1",
+    "light": "#818cf8",
+    "dark": "#4f46e5"
   },
-  "favicon": "/favicon.svg",
+  "navbar": {
+    "primary": {
+      "type": "github",
+      "href": "https://github.com/x0bd/glyph-ui"
+    }
+  },
+  "footer": {
+    "socials": {
+      "github": "https://github.com/x0bd/glyph-ui"
+    }
+  },
   "navigation": {
     "tabs": [
       {
-        "tab": "Guides",
+        "tab": "Documentation",
         "groups": [
           {
-            "group": "Getting started",
+            "group": "Get Started",
             "pages": [
-              "index",
-              "quickstart",
-              "development"
+              "introduction",
+              "installation",
+              "quickstart"
             ]
           },
           {
-            "group": "Customization",
+            "group": "Core Concepts",
             "pages": [
-              "essentials/settings",
-              "essentials/navigation"
+              "concepts/virtual-dom",
+              "concepts/rendering",
+              "concepts/components",
+              "concepts/lifecycle"
             ]
           },
           {
-            "group": "Writing content",
+            "group": "Components",
             "pages": [
-              "essentials/markdown",
-              "essentials/code",
-              "essentials/images",
-              "essentials/reusable-snippets"
+              "components/functional",
+              "components/class-based",
+              "components/composition",
+              "components/slots"
             ]
           },
           {
-            "group": "AI tools",
+            "group": "Hooks",
             "pages": [
-              "ai-tools/cursor",
-              "ai-tools/claude-code",
-              "ai-tools/windsurf"
+              "hooks/overview",
+              "hooks/use-state",
+              "hooks/use-effect",
+              "hooks/use-ref",
+              "hooks/use-memo",
+              "hooks/use-callback"
+            ]
+          },
+          {
+            "group": "State Management",
+            "pages": [
+              "state/local-state",
+              "state/create-app",
+              "state/global-store",
+              "state/connect"
+            ]
+          },
+          {
+            "group": "Advanced",
+            "pages": [
+              "advanced/lazy-loading",
+              "advanced/suspense",
+              "advanced/performance",
+              "advanced/testing"
             ]
           }
         ]
       },
       {
-        "tab": "API reference",
+        "tab": "API Reference",
         "groups": [
           {
-            "group": "API documentation",
+            "group": "Core API",
             "pages": [
-              "api-reference/introduction"
+              "api/h",
+              "api/create-app",
+              "api/component",
+              "api/create-component"
             ]
           },
           {
-            "group": "Endpoint examples",
+            "group": "Hooks API",
             "pages": [
-              "api-reference/endpoint/get",
-              "api-reference/endpoint/create",
-              "api-reference/endpoint/delete",
-              "api-reference/endpoint/webhook"
+              "api/hooks/use-state",
+              "api/hooks/use-effect",
+              "api/hooks/use-ref",
+              "api/hooks/use-memo",
+              "api/hooks/use-callback"
+            ]
+          },
+          {
+            "group": "State Management API",
+            "pages": [
+              "api/state/create-store",
+              "api/state/connect",
+              "api/state/create-actions"
+            ]
+          },
+          {
+            "group": "Advanced API",
+            "pages": [
+              "api/lazy",
+              "api/suspense",
+              "api/slots"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Examples",
+        "groups": [
+          {
+            "group": "Examples",
+            "pages": [
+              "examples/counter",
+              "examples/todo-app",
+              "examples/lazy-loading",
+              "examples/pomodoro-timer",
+              "examples/tic-tac-toe",
+              "examples/memory-game"
             ]
           }
         ]
       }
-    ],
-    "global": {
-      "anchors": [
-        {
-          "anchor": "Documentation",
-          "href": "https://mintlify.com/docs",
-          "icon": "book-open-cover"
-        },
-        {
-          "anchor": "Blog",
-          "href": "https://mintlify.com/blog",
-          "icon": "newspaper"
-        }
-      ]
-    }
-  },
-  "logo": {
-    "light": "/logo/light.svg",
-    "dark": "/logo/dark.svg"
-  },
-  "navbar": {
-    "links": [
-      {
-        "label": "Support",
-        "href": "mailto:hi@mintlify.com"
-      }
-    ],
-    "primary": {
-      "type": "button",
-      "label": "Dashboard",
-      "href": "https://dashboard.mintlify.com"
-    }
-  },
-  "contextual": {
-    "options": [
-     "copy",
-     "view",
-     "chatgpt",
-     "claude",
-     "perplexity",
-     "mcp",
-     "cursor",
-     "vscode"
-   ]
-  },
-  "footer": {
-    "socials": {
-      "x": "https://x.com/mintlify",
-      "github": "https://github.com/mintlify",
-      "linkedin": "https://linkedin.com/company/mintlify"
-    }
+    ]
   }
 }

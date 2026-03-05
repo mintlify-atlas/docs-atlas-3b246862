@@ -1,0 +1,180 @@
+---
+title: createApp()
+description: Create a GlyphUI application with state management
+---
+
+# createApp()
+
+Creates a GlyphUI application with top-level state management, reducers, and a view function. This is the main entry point for building applications with GlyphUI.
+
+## Signature
+
+```javascript
+createApp(config)
+```
+
+## Parameters
+
+<ParamField path="config" type="object" default="{}">
+  The application configuration object.
+  
+  <ParamField path="config.state" type="object" default="{}">
+    The initial state of the application.
+  </ParamField>
+  
+  <ParamField path="config.view" type="function" default="null">
+    The top-level view function that renders the application UI.
+    
+    **Signature:** `(state, emit) => vnode`
+    
+    - `state`: The current application state
+    - `emit`: Function to dispatch actions
+    
+    Returns a virtual node representing the UI.
+  </ParamField>
+  
+  <ParamField path="config.reducers" type="object" default="{}">
+    An object mapping action names to reducer functions.
+    
+    **Reducer signature:** `(state, payload) => newState`
+    
+    - `state`: The current state
+    - `payload`: The action payload
+    
+    Returns the new state.
+  </ParamField>
+</ParamField>
+
+## Return Value
+
+<ResponseField name="app" type="object">
+  Returns an application object with the following methods:
+  
+  - `mount(parentEl)`: Mounts the application to a DOM element
+  - `unmount()`: Unmounts the application and cleans up
+  - `emit(eventName, payload)`: Dispatches an action
+</ResponseField>
+
+## Methods
+
+### mount()
+
+Mounts the application to a DOM element.
+
+**Signature:**
+```javascript
+app.mount(parentEl)
+```
+
+<ParamField path="parentEl" type="HTMLElement" required>
+  The DOM element to mount the application to.
+</ParamField>
+
+**Returns:** The application object (for method chaining)
+
+**Example:**
+```javascript
+const app = createApp({ /* config */ })
+app.mount(document.getElementById('app'))
+```
+
+### unmount()
+
+Unmounts the application from the DOM and unsubscribes all event listeners.
+
+**Signature:**
+```javascript
+app.unmount()
+```
+
+**Example:**
+```javascript
+app.unmount()
+```
+
+### emit()
+
+Dispatches an action to the application, triggering the corresponding reducer.
+
+**Signature:**
+```javascript
+app.emit(eventName, payload)
+```
+
+<ParamField path="eventName" type="string" required>
+  The name of the action to dispatch.
+</ParamField>
+
+<ParamField path="payload" type="any">
+  The payload to pass to the reducer.
+</ParamField>
+
+**Example:**
+```javascript
+app.emit('increment', { amount: 1 })
+```
+
+## Complete Example
+
+```javascript
+import { createApp } from '@glyphui/runtime'
+import { h } from '@glyphui/runtime'
+
+// Create the application
+const app = createApp({
+  // Initial state
+  state: {
+    count: 0
+  },
+  
+  // View function
+  view: (state, emit) => {
+    return h('div', {}, [
+      h('h1', {}, [`Count: ${state.count}`]),
+      h('button', {
+        on: {
+          click: () => emit('increment')
+        }
+      }, ['Increment']),
+      h('button', {
+        on: {
+          click: () => emit('decrement')
+        }
+      }, ['Decrement'])
+    ])
+  },
+  
+  // Reducers
+  reducers: {
+    increment: (state) => ({
+      ...state,
+      count: state.count + 1
+    }),
+    
+    decrement: (state) => ({
+      ...state,
+      count: state.count - 1
+    })
+  }
+})
+
+// Mount the application
+app.mount(document.getElementById('app'))
+```
+
+## How It Works
+
+1. **Initialization**: `createApp()` sets up a dispatcher and subscribes reducers to actions
+2. **Mounting**: When `mount()` is called, the view function is invoked with the current state
+3. **Rendering**: The virtual DOM is created and mounted to the target element
+4. **State Updates**: When `emit()` is called:
+   - The corresponding reducer updates the state
+   - The view function is called with the new state
+   - The DOM is efficiently patched with the changes
+
+## Notes
+
+- Reducers should be pure functions that don't mutate the state
+- The view function is called automatically whenever the state changes
+- GlyphUI uses a virtual DOM diffing algorithm to efficiently update only the parts that changed
+- You can emit actions from within event handlers, reducers, or anywhere you have access to the `emit` function

@@ -1,0 +1,446 @@
+---
+title: Performance Optimization
+description: Optimize rendering performance with memoization, key props, and efficient diffing
+---
+
+GlyphUI includes several features to help you build high-performance applications. Understanding how the framework optimizes rendering will help you write efficient components.
+
+## Virtual DOM Diffing
+
+GlyphUI uses a sophisticated diffing algorithm to minimize DOM operations. The reconciliation process compares the previous and new virtual DOM trees to determine the minimal set of changes needed.
+
+### How Diffing Works
+
+From `patch-dom.js:19`, the `patchDOM` function implements several optimizations:
+
+```javascript
+export function patchDOM(oldVdom, newVdom, parentEl, index) {
+  // Fast path for identical references - nothing to change
+  if (oldVdom === newVdom) {
+    return newVdom;
+  }
+  
+  // If node types differ, replace the old node
+  if (oldVdom.type !== newVdom.type) {
+    replaceNode(oldVdom, newVdom, parentEl, index);
+    return newVdom;
+  }
+  
+  // For text nodes, do a simple value check
+  if (newVdom.type === DOM_TYPES.TEXT && oldVdom.value === newVdom.value) {
+    newVdom.el = oldVdom.el;
+    return newVdom;
+  }
+  
+  // Update attributes only if props changed
+  if (!isShallowEqual(oldVdom.props, newVdom.props)) {
+    updateAttributes(el, oldVdom.props, newVdom.props);
+    updateEventListeners(el, oldVdom, newVdom);
+  }
+}
+```
+
+### Optimization Techniques
+
+1. **Reference equality check**: If `oldVdom === newVdom`, skip all updates
+2. **Shallow props comparison**: Only update DOM when props actually change
+3. **Type-based optimization**: Different node types trigger full replacement
+4. **Selective updates**: Only modify changed attributes and event listeners
+
+## The Key Prop
+
+Using the `key` prop is crucial for optimizing list rendering. Keys help GlyphUI identify which items have changed, been added, or been removed.
+
+### Without Keys (Slower)
+
+```javascript
+class TodoList extends Component {
+  render(props, state) {
+    return h('ul', {}, 
+      state.todos.map(todo => 
+        h('li', {}, [todo.text])  // No key - inefficient
+      )
+    );
+  }
+}
+```
+
+Without keys, GlyphUI uses index-based reconciliation, which can lead to:
+- Unnecessary DOM updates
+- Loss of component state
+- Broken event listeners
+
+### With Keys (Optimized)
+
+```javascript
+class TodoList extends Component {
+  render(props, state) {
+    return h('ul', {}, 
+      state.todos.map(todo => 
+        h('li', { key: todo.id }, [todo.text])  // With key - efficient
+      )
+    );
+  }
+}
+```
+
+With keys, GlyphUI uses key-based reconciliation (`patch-dom.js:257`):
+
+```javascript
+function patchKeyedChildren(oldChildren, newChildren, parentEl) {
+  const oldKeyMap = new Map();
+  oldChildren.forEach((child, i) => {
+    const key = getNodeKey(child);
+    if (key !== undefined) {
+      oldKeyMap.set(key, { vdom: child, index: i });
+    }
+  });
+  
+  // Efficiently reorder and update nodes based on keys
+  for (let i = 0; i < newChildren.length; i++) {
+    const newChild = newChildren[i];
+    const newKey = getNodeKey(newChild);
+    const oldEntry = newKey !== undefined ? oldKeyMap.get(newKey) : undefined;
+    
+    if (oldEntry) {
+      // Reuse existing node
+      patchDOM(oldEntry.vdom, newChild, parentEl, i);
+    } else {
+      // Create new node
+      mountDOM(newChild, parentEl, i);
+    }
+  }
+}
+```
+
+### Key Best Practices
+
+<Tip>
+Always use stable, unique identifiers as keys. Avoid using array indices as keys when the list can be reordered.
+</Tip>
+
+```javascript
+// Good: Stable unique IDs
+state.items.map(item => 
+  h('div', { key: item.id }, [item.name])
+)
+
+// Bad: Array indices (order can change)
+state.items.map((item, index) => 
+  h('div', { key: index }, [item.name])
+)
+
+// Bad: Non-unique keys
+state.items.map(item => 
+  h('div', { key: item.category }, [item.name])
+)
+```
+
+## Memoization with useMemo
+
+The `useMemo` hook caches expensive computations and only recalculates when dependencies change.
+
+### Basic Usage
+
+```javascript
+import { useState, useMemo } from 'glyphui';
+
+function ExpensiveComponent({ numbers }) {
+  const [filter, setFilter] = useState('');
+  
+  // Only recalculate when numbers or filter changes
+  const filteredNumbers = useMemo(() => {
+    console.log('Filtering numbers...');
+    return numbers.filter(n => n.toString().includes(filter));
+  }, [numbers, filter]);
+  
+  return h('div', {}, [
+    h('input', {
+      value: filter,
+      on: { input: (e) => setFilter(e.target.value) }
+    }),
+    h('ul', {}, 
+      filteredNumbers.map(n => 
+        h('li', { key: n }, [n.toString()])
+      )
+    )
+  ]);
+}
+```
+
+### Prime Number Example
+
+From `examples/performance/prime-calculator.js:8`, here's a real-world example:
+
+```javascript
+const findLargestPrime = (limit) => {
+  console.log(`Calculating largest prime below ${limit}...`);
+  let largestPrime = 2;
+  
+  for (let i = 3; i < limit; i += 2) {
+    let isPrime = true;
+    for (let j = 3; j * j <= i; j += 2) {
+      if (i % j === 0) {
+        isPrime = false;
+        break;
+      }
+    }
+    if (isPrime) {
+      largestPrime = i;
+    }
+  }
+  
+  return largestPrime;
+};
+
+class PrimeCalculator extends Component {
+  constructor() {
+    super({}, {
+      initialState: {
+        numberLimit: 10000,
+        unrelatedState: 0,
+        largestPrime: 2,
+        lastCalculatedLimit: 0
+      }
+    });
+  }
+  
+  // Only recalculate when numberLimit changes
+  calculateLargestPrime(numberLimit) {
+    if (numberLimit !== this.state.lastCalculatedLimit) {
+      return findLargestPrime(numberLimit);
+    }
+    return this.state.largestPrime;
+  }
+  
+  incrementCounter() {
+    // This update doesn't trigger prime recalculation
+    this.setState({ unrelatedState: this.state.unrelatedState + 1 });
+  }
+}
+```
+
+<Warning>
+Don't overuse memoization. Simple calculations are often faster than the overhead of memoization. Profile before optimizing.
+</Warning>
+
+## Callback Memoization with useCallback
+
+The `useCallback` hook memoizes function references to prevent unnecessary re-renders of child components.
+
+### The Problem
+
+```javascript
+function ParentComponent() {
+  const [count, setCount] = useState(0);
+  
+  // New function created on every render
+  const handleClick = () => {
+    console.log('Clicked');
+  };
+  
+  // Child re-renders even if props haven't changed
+  return createComponent(ChildButton, { onClick: handleClick });
+}
+```
+
+### The Solution
+
+```javascript
+import { useState, useCallback } from 'glyphui';
+
+function ParentComponent() {
+  const [count, setCount] = useState(0);
+  
+  // Function reference stays the same between renders
+  const handleClick = useCallback(() => {
+    console.log('Clicked');
+  }, []); // Empty deps = never recreate
+  
+  // Child only re-renders when handleClick changes
+  return createComponent(ChildButton, { onClick: handleClick });
+}
+```
+
+### Class Component Alternative
+
+In class components, bind methods in the constructor for similar benefits:
+
+```javascript
+class ParentComponent extends Component {
+  constructor() {
+    super({}, {
+      initialState: { count: 0 }
+    });
+    
+    // Bind once in constructor
+    this.handleThemeToggle = this.handleThemeToggle.bind(this);
+    this.handleCounterReset = this.handleCounterReset.bind(this);
+  }
+  
+  handleThemeToggle() {
+    // Method reference doesn't change between renders
+    this.setState({ theme: this.state.theme === 'light' ? 'dark' : 'light' });
+  }
+  
+  handleCounterReset() {
+    this.setState({ count: 0 });
+  }
+  
+  render(props, state) {
+    return h('div', {}, [
+      // These callbacks maintain referential equality
+      createComponent(Button, {
+        onClick: this.handleThemeToggle
+      }, ['Toggle Theme']),
+      createComponent(Button, {
+        onClick: this.handleCounterReset
+      }, ['Reset Counter'])
+    ]);
+  }
+}
+```
+
+## Component Optimization Patterns
+
+### Avoid Creating New Objects in Render
+
+```javascript
+// Bad: New object created on every render
+render() {
+  return h('div', {
+    style: { padding: '20px', margin: '10px' }  // New object
+  }, ['Content']);
+}
+
+// Good: Reuse object references
+const containerStyle = { padding: '20px', margin: '10px' };
+
+render() {
+  return h('div', {
+    style: containerStyle  // Same reference
+  }, ['Content']);
+}
+```
+
+### Extract Static Content
+
+```javascript
+// Bad: Recreated on every render
+render(props, state) {
+  return h('div', {}, [
+    h('header', {}, [
+      h('h1', {}, ['My App']),
+      h('nav', {}, [/* complex navigation */])
+    ]),
+    h('main', {}, [state.content])
+  ]);
+}
+
+// Good: Extract static header
+class Header extends Component {
+  render() {
+    return h('header', {}, [
+      h('h1', {}, ['My App']),
+      h('nav', {}, [/* complex navigation */])
+    ]);
+  }
+}
+
+render(props, state) {
+  return h('div', {}, [
+    createComponent(Header),
+    h('main', {}, [state.content])
+  ]);
+}
+```
+
+### Shallow Props Comparison
+
+GlyphUI automatically performs shallow comparison of props to skip unnecessary updates:
+
+```javascript
+// From patch-dom.js:68
+if (isShallowEqual(oldVdom.props, newVdom.props)) {
+  // Props are the same, reuse the old element
+  newVdom.el = oldVdom.el;
+  if (newVdom.type === COMPONENT_TYPE) {
+    newVdom.instance = oldVdom.instance;
+  }
+  return newVdom;
+}
+```
+
+This means components won't re-render if their props haven't changed.
+
+## Batching State Updates
+
+Minimize re-renders by batching multiple state updates:
+
+```javascript
+// Bad: Multiple re-renders
+handleUpdate() {
+  this.setState({ loading: true });
+  this.setState({ error: null });
+  this.setState({ data: newData });
+}
+
+// Good: Single re-render
+handleUpdate() {
+  this.setState({
+    loading: true,
+    error: null,
+    data: newData
+  });
+}
+```
+
+## Profiling Performance
+
+### Console Logging
+
+Add strategic console logs to identify unnecessary renders:
+
+```javascript
+class MyComponent extends Component {
+  render(props, state) {
+    console.log('MyComponent rendered', { props, state });
+    return h('div', {}, ['Content']);
+  }
+}
+```
+
+### Performance Timing
+
+Measure expensive operations:
+
+```javascript
+function expensiveCalculation(data) {
+  const start = performance.now();
+  const result = /* ... */;
+  const end = performance.now();
+  console.log(`Calculation took ${end - start}ms`);
+  return result;
+}
+```
+
+## Best Practices Summary
+
+1. **Use keys in lists**: Always provide unique, stable keys for list items
+2. **Memoize expensive computations**: Use `useMemo` for costly calculations
+3. **Memoize callbacks**: Use `useCallback` or bind methods in constructor
+4. **Avoid inline objects**: Extract static objects to prevent unnecessary re-renders
+5. **Batch state updates**: Update multiple state values in a single call
+6. **Extract static components**: Move unchanging UI to separate components
+7. **Profile before optimizing**: Measure actual performance impact before adding complexity
+
+<Tip>
+Premature optimization is the root of all evil. Profile your application first, identify bottlenecks, then apply targeted optimizations.
+</Tip>
+
+## Related
+
+- [useMemo Hook](/hooks/use-memo) - Memoize expensive calculations
+- [useCallback Hook](/hooks/use-callback) - Memoize callback functions
+- [Lazy Loading](/advanced/lazy-loading) - Code splitting for better initial load
+- [Virtual DOM](/concepts/virtual-dom) - Understanding the diffing algorithm

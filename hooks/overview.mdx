@@ -1,0 +1,166 @@
+---
+title: Hooks Overview
+description: Learn about GlyphUI's hooks system for managing state and side effects in functional components
+---
+
+## What are Hooks?
+
+Hooks are functions that let you "hook into" GlyphUI features from functional components. They enable you to add state, side effects, and other capabilities to your components without writing classes.
+
+GlyphUI's hooks system is inspired by React, providing a familiar and powerful API for managing component behavior.
+
+## Available Hooks
+
+GlyphUI provides the following built-in hooks:
+
+- **[useState](/hooks/use-state)** - Add state to functional components
+- **[useEffect](/hooks/use-effect)** - Perform side effects after rendering
+- **[useRef](/hooks/use-ref)** - Create mutable references that persist across renders
+- **[useMemo](/hooks/use-memo)** - Memoize expensive computations
+- **[useCallback](/hooks/use-callback)** - Memoize callback functions
+
+## Rules of Hooks
+
+To ensure hooks work correctly, you must follow these rules:
+
+### Only Call Hooks from Functional Components
+
+Hooks can only be called from within a functional component's render function or from inside another custom hook. Don't call them from:
+
+- Regular JavaScript functions
+- Class components
+- Event handlers outside of the render function
+- Async callbacks after rendering
+
+```javascript
+// ✅ Good: Hook called in functional component
+const MyComponent = () => {
+  const [count, setCount] = useState(0);
+  return h('div', {}, [`Count: ${count}`]);
+};
+
+// ❌ Bad: Hook called outside component
+const count = useState(0); // Error!
+
+function regularFunction() {
+  const [count, setCount] = useState(0); // Error!
+}
+```
+
+### Only Call Hooks at the Top Level
+
+Don't call hooks inside loops, conditions, or nested functions. Always use hooks at the top level of your functional component, before any early returns.
+
+This ensures hooks are called in the same order every time a component renders, which is critical for maintaining internal state correctly.
+
+```javascript
+// ✅ Good: Hooks at top level
+const MyComponent = ({ condition }) => {
+  const [count, setCount] = useState(0);
+  const [name, setName] = useState('');
+  
+  if (condition) {
+    return h('div', {}, ['Loading...']);
+  }
+  
+  return h('div', {}, [`${name}: ${count}`]);
+};
+
+// ❌ Bad: Hook inside condition
+const MyComponent = ({ condition }) => {
+  if (condition) {
+    const [count, setCount] = useState(0); // Error!
+  }
+  
+  return h('div', {}, ['...']);
+};
+
+// ❌ Bad: Hook inside loop
+const MyComponent = ({ items }) => {
+  for (let i = 0; i < items.length; i++) {
+    const [value, setValue] = useState(items[i]); // Error!
+  }
+  
+  return h('div', {}, ['...']);
+};
+```
+
+## How Hooks Work
+
+GlyphUI maintains a hooks store for each component instance using a `WeakMap`. When a component renders:
+
+1. The hooks system initializes with `initHooks(componentInstance)`
+2. Each hook call increments an internal hook index
+3. Hooks are stored in order and retrieved by index on subsequent renders
+4. After rendering completes, `finishHooks()` is called
+
+This is why the order of hook calls must remain consistent across renders.
+
+## Error Handling
+
+If you try to call a hook outside of a component's render context, you'll see this error:
+
+```
+Hooks can only be called inside a component's render function or inside another hook.
+Don't call hooks outside of components or in class components.
+```
+
+This error is thrown by the internal `checkHooksContext()` function in `packages/runtime/src/hooks.js:84-92`.
+
+## Example: Using Multiple Hooks
+
+Here's a complete example demonstrating multiple hooks working together:
+
+```javascript
+import { h, useState, useEffect, useRef } from './glyphui.js';
+
+const FormComponent = () => {
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [submitted, setSubmitted] = useState(false);
+  
+  // Use a ref to store the input element
+  const nameInputRef = useRef(null);
+  
+  // Focus the name input when component mounts
+  useEffect(() => {
+    if (nameInputRef.current) {
+      nameInputRef.current.focus();
+    }
+  }, []);
+  
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    setSubmitted(true);
+  };
+  
+  return submitted
+    ? h('div', {}, [
+        h('p', {}, [`Thank you, ${name}!`]),
+        h('p', {}, [`We'll contact you at ${email}`])
+      ])
+    : h('form', { onsubmit: handleSubmit }, [
+        h('input', {
+          type: 'text',
+          value: name,
+          oninput: (e) => setName(e.target.value),
+          ref: (el) => (nameInputRef.current = el)
+        }, []),
+        h('input', {
+          type: 'email',
+          value: email,
+          oninput: (e) => setEmail(e.target.value)
+        }, []),
+        h('button', { type: 'submit' }, ['Submit'])
+      ]);
+};
+```
+
+## Next Steps
+
+Explore each hook in detail:
+
+- Learn about [useState](/hooks/use-state) for managing component state
+- Use [useEffect](/hooks/use-effect) for side effects and lifecycle events
+- Store mutable values with [useRef](/hooks/use-ref)
+- Optimize performance with [useMemo](/hooks/use-memo) and [useCallback](/hooks/use-callback)

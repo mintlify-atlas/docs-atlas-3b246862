@@ -1,0 +1,138 @@
+---
+title: 'Suspense'
+description: 'Declarative loading states for lazy components'
+---
+
+## Overview
+
+`Suspense` is a pattern for handling loading states declaratively when using lazy-loaded components. While GlyphUI's `lazy()` function has built-in loading support, you can create custom Suspense-like components for more complex scenarios.
+
+## Using with lazy()
+
+The `lazy()` function in GlyphUI includes built-in support for loading and error states through its options parameter:
+
+```javascript
+import { lazy, h } from 'glyphui';
+
+const LazyComponent = lazy(
+  () => import('./MyComponent.js'),
+  {
+    // This acts as a Suspense fallback
+    loading: () => h('div', {}, ['Loading...']),
+    error: ({ error }) => h('div', {}, ['Error: ', error.message])
+  }
+);
+```
+
+## Custom Suspense Pattern
+
+You can create a reusable Suspense-like component for consistent loading states:
+
+```javascript
+import { Component, h } from 'glyphui';
+
+class Suspense extends Component {
+  render(props, state) {
+    const { fallback, children } = props;
+    
+    // Wrap children with error boundary
+    return h('div', { class: 'suspense-boundary' }, children);
+  }
+}
+
+// Usage
+function App() {
+  return h(Suspense, {
+    fallback: h('div', {}, ['Loading application...'])
+  }, [
+    LazyDashboard(),
+    LazyProfile()
+  ]);
+}
+```
+
+## Props Pattern
+
+<ParamField path="fallback" type="Function | Object" required>
+  A component or virtual DOM node to display while lazy components are loading.
+</ParamField>
+
+<ParamField path="children" type="Array">
+  Child components, potentially including lazy-loaded components.
+</ParamField>
+
+## Best Practices
+
+### Granular Loading States
+
+Provide loading states for each lazy component rather than wrapping multiple components:
+
+```javascript
+// Good: Individual loading states
+const LazyHeader = lazy(
+  () => import('./Header.js'),
+  { loading: () => h('div', {}, ['Loading header...']) }
+);
+
+const LazyContent = lazy(
+  () => import('./Content.js'),
+  { loading: () => h('div', {}, ['Loading content...']) }
+);
+```
+
+### Meaningful Fallbacks
+
+Use skeleton screens or contextual loading messages:
+
+```javascript
+const LazyDataTable = lazy(
+  () => import('./DataTable.js'),
+  {
+    loading: () => h('div', { class: 'skeleton' }, [
+      h('div', { class: 'skeleton-row' }),
+      h('div', { class: 'skeleton-row' }),
+      h('div', { class: 'skeleton-row' })
+    ])
+  }
+);
+```
+
+### Error Recovery
+
+Provide retry functionality in error states:
+
+```javascript
+class RetryableComponent extends Component {
+  constructor(props) {
+    super(props, {
+      initialState: { key: 0 }
+    });
+  }
+  
+  retry() {
+    // Force remount by changing key
+    this.setState({ key: this.state.key + 1 });
+  }
+  
+  render(props, state) {
+    const LazyComponent = lazy(
+      () => import('./MyComponent.js'),
+      {
+        error: ({ error }) => h('div', {}, [
+          h('p', {}, ['Failed to load']),
+          h('button', {
+            onclick: () => this.retry()
+          }, ['Retry'])
+        ])
+      }
+    );
+    
+    return LazyComponent({ key: state.key });
+  }
+}
+```
+
+## See Also
+
+- [lazy()](/api/lazy) - Create lazy-loaded components
+- [Component](/api/component) - Base component class

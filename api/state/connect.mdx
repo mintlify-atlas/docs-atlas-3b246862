@@ -1,0 +1,282 @@
+---
+title: "connect"
+description: "Connects a store to a GlyphUI component using the Higher-Order Component pattern"
+---
+
+## Overview
+
+The `connect` function creates a Higher-Order Component (HOC) that injects store state into a GlyphUI component's props. It automatically subscribes to store changes and efficiently updates the component only when the selected state changes.
+
+## Signature
+
+```javascript
+function connect(store, selector)
+```
+
+<ParamField path="store" type="object" required>
+  The store object created with `createStore`.
+</ParamField>
+
+<ParamField path="selector" type="function" default="state => state">
+  Optional function to select specific parts of the state. Receives the entire state and returns the subset to inject into the component.
+  
+  **Function Signature:**
+  ```javascript
+  (state) => selectedState
+  ```
+  
+  Using a selector optimizes performance by only triggering re-renders when the selected state changes, not the entire store.
+</ParamField>
+
+## Return Value
+
+Returns a function that takes a component class and returns a new connected component:
+
+```javascript
+(ComponentClass) => ConnectedComponent
+```
+
+The connected component receives a `store` prop containing the selected state.
+
+## How It Works
+
+1. **Wraps the Component**: Creates a new class that extends your original component
+2. **Injects State**: Passes the selected state as a `store` prop
+3. **Subscribes to Changes**: Automatically subscribes to store updates
+4. **Optimizes Re-renders**: Only updates when selected state changes (shallow comparison)
+5. **Cleans Up**: Automatically unsubscribes when component unmounts
+
+## Examples
+
+### Basic Connection
+
+```javascript
+import { Component } from '@glyphui/runtime';
+import { createStore, connect } from '@glyphui/runtime';
+
+// Create a store
+const counterStore = createStore((setState, getState) => ({
+  count: 0,
+  increment: () => {
+    const state = getState();
+    setState({ count: state.count + 1 });
+  }
+}));
+
+// Define component
+class Counter extends Component {
+  render() {
+    const { count, increment } = this.props.store;
+    
+    return (
+      <div>
+        <p>Count: {count}</p>
+        <button onClick={increment}>Increment</button>
+      </div>
+    );
+  }
+}
+
+// Connect component to store
+const ConnectedCounter = connect(counterStore)(Counter);
+```
+
+### Using a Selector
+
+Selectors optimize performance by only passing the needed state:
+
+```javascript
+const todoStore = createStore((setState, getState) => ({
+  todos: [],
+  filter: 'all',
+  user: { name: 'Alice', id: 1 },
+  
+  addTodo: (text) => {
+    const state = getState();
+    setState({
+      todos: [...state.todos, { id: Date.now(), text, completed: false }]
+    });
+  }
+}));
+
+// Component only needs todos and addTodo
+class TodoList extends Component {
+  render() {
+    const { todos, addTodo } = this.props.store;
+    
+    return (
+      <div>
+        {todos.map(todo => <div key={todo.id}>{todo.text}</div>)}
+        <button onClick={() => addTodo('New todo')}>Add</button>
+      </div>
+    );
+  }
+}
+
+// Selector only passes todos and addTodo
+// Component won't re-render when filter or user changes
+const ConnectedTodoList = connect(
+  todoStore,
+  state => ({ todos: state.todos, addTodo: state.addTodo })
+)(TodoList);
+```
+
+### Multiple Connected Components
+
+Multiple components can connect to the same store with different selectors:
+
+```javascript
+// Component 1: Shows todo list
+const TodoList = connect(
+  todoStore,
+  state => ({ todos: state.todos, addTodo: state.addTodo })
+)(TodoListComponent);
+
+// Component 2: Shows filter controls
+const FilterBar = connect(
+  todoStore,
+  state => ({ filter: state.filter, setFilter: state.setFilter })
+)(FilterBarComponent);
+
+// Component 3: Shows user info
+const UserInfo = connect(
+  todoStore,
+  state => ({ user: state.user })
+)(UserInfoComponent);
+```
+
+Each component only re-renders when its selected state changes.
+
+### Computed Values in Selectors
+
+```javascript
+const ConnectedTodoStats = connect(
+  todoStore,
+  state => ({
+    totalCount: state.todos.length,
+    completedCount: state.todos.filter(t => t.completed).length,
+    activeCount: state.todos.filter(t => !t.completed).length
+  })
+)(TodoStats);
+```
+
+## Performance Optimization
+
+### Shallow Comparison
+
+`connect` uses shallow comparison to determine if the component should update:
+
+- **Primitives**: Compared by value (`===`)
+- **Objects/Arrays**: Compared by reference (`===`)
+- **Functions**: Compared by function name
+
+This means you should return consistent references from selectors:
+
+```javascript
+// Bad: Creates new array every time
+const selector = state => ({
+  items: state.items.filter(item => item.active) // New array reference!
+});
+
+// Good: Return the array reference directly if possible
+const selector = state => ({
+  items: state.items // Same reference if items didn't change
+});
+```
+
+### Memoize Expensive Computations
+
+For expensive computed values, consider memoization:
+
+```javascript
+let cachedFiltered = [];
+let lastTodos = null;
+let lastFilter = null;
+
+const selector = state => {
+  // Only recompute if todos or filter changed
+  if (state.todos !== lastTodos || state.filter !== lastFilter) {
+    cachedFiltered = state.todos.filter(/* ... */);
+    lastTodos = state.todos;
+    lastFilter = state.filter;
+  }
+  
+  return { todos: cachedFiltered };
+};
+```
+
+## Accessing Props in Connected Components
+
+The connected component receives both the original props and the store prop:
+
+```javascript
+class MyComponent extends Component {
+  render() {
+    // Original props passed by parent
+    const { title, onClose } = this.props;
+    
+    // Store state injected by connect
+    const { count, increment } = this.props.store;
+    
+    return (
+      <div>
+        <h1>{title}</h1>
+        <p>Count: {count}</p>
+        <button onClick={increment}>Increment</button>
+        <button onClick={onClose}>Close</button>
+      </div>
+    );
+  }
+}
+
+const Connected = connect(store)(MyComponent);
+
+// Use it:
+<Connected title="My Counter" onClose={handleClose} />
+```
+
+## Lifecycle Integration
+
+The connected component automatically handles subscription lifecycle:
+
+1. **Constructor**: Subscribes to store and gets initial state
+2. **Updates**: Receives new state when store changes (if selected state changed)
+3. **Unmount**: Automatically unsubscribes via `beforeUnmount` lifecycle hook
+
+You can still use lifecycle methods in your component:
+
+```javascript
+class MyComponent extends Component {
+  mounted() {
+    console.log('Component mounted with store:', this.props.store);
+  }
+  
+  beforeUnmount() {
+    console.log('Component will unmount');
+    // Note: No need to unsubscribe from store, connect handles it
+  }
+}
+```
+
+## Best Practices
+
+<Card title="Use Specific Selectors" icon="bullseye">
+  Only select the state your component needs. This prevents unnecessary re-renders and improves performance.
+</Card>
+
+<Card title="Keep Selectors Simple" icon="code">
+  Complex computations in selectors can cause performance issues. Consider computing values in the store actions instead.
+</Card>
+
+<Card title="Connect at Component Level" icon="plug">
+  Connect individual components rather than passing store props down through multiple levels. This gives each component independence.
+</Card>
+
+<Card title="Return Stable References" icon="link">
+  Avoid creating new objects or arrays in selectors unless the underlying data changed, as this triggers re-renders.
+</Card>
+
+## See Also
+
+- [createStore](/api/state/create-store) - Create a state management store
+- [createActions](/api/state/create-actions) - Create bound action creators
