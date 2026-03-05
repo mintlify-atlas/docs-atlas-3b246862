@@ -1,0 +1,159 @@
+{
+  "projectType": "framework",
+  "projectName": "GlyphUI",
+  "projectDescription": "A lightweight JavaScript framework built to understand how modern frontend frameworks work",
+  "theme": "palm",
+  "primaryColor": "#6366f1",
+  "lightColor": "#818cf8",
+  "darkColor": "#4f46e5",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": [
+              "introduction",
+              "installation",
+              "quickstart"
+            ]
+          },
+          {
+            "group": "Core Concepts",
+            "pages": [
+              "concepts/virtual-dom",
+              "concepts/rendering",
+              "concepts/components",
+              "concepts/lifecycle"
+            ]
+          },
+          {
+            "group": "Components",
+            "pages": [
+              "components/functional",
+              "components/class-based",
+              "components/composition",
+              "components/slots"
+            ]
+          },
+          {
+            "group": "Hooks",
+            "pages": [
+              "hooks/overview",
+              "hooks/use-state",
+              "hooks/use-effect",
+              "hooks/use-ref",
+              "hooks/use-memo",
+              "hooks/use-callback"
+            ]
+          },
+          {
+            "group": "State Management",
+            "pages": [
+              "state/local-state",
+              "state/create-app",
+              "state/global-store",
+              "state/connect"
+            ]
+          },
+          {
+            "group": "Advanced",
+            "pages": [
+              "advanced/lazy-loading",
+              "advanced/suspense",
+              "advanced/performance",
+              "advanced/testing"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "API Reference",
+        "groups": [
+          {
+            "group": "Core API",
+            "pages": [
+              "api/h",
+              "api/create-app",
+              "api/component",
+              "api/create-component"
+            ]
+          },
+          {
+            "group": "Hooks API",
+            "pages": [
+              "api/hooks/use-state",
+              "api/hooks/use-effect",
+              "api/hooks/use-ref",
+              "api/hooks/use-memo",
+              "api/hooks/use-callback"
+            ]
+          },
+          {
+            "group": "State Management API",
+            "pages": [
+              "api/state/create-store",
+              "api/state/connect",
+              "api/state/create-actions"
+            ]
+          },
+          {
+            "group": "Advanced API",
+            "pages": [
+              "api/lazy",
+              "api/suspense",
+              "api/slots"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Examples",
+        "groups": [
+          {
+            "group": "Examples",
+            "pages": [
+              "examples/counter",
+              "examples/todo-app",
+              "examples/lazy-loading",
+              "examples/pomodoro-timer",
+              "examples/tic-tac-toe",
+              "examples/memory-game"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "Virtual DOM with efficient diffing algorithm",
+    "Class-based and functional components",
+    "React-like hooks API (useState, useEffect, useMemo, useCallback)",
+    "Global state management with createStore and connect",
+    "Lazy loading and code splitting with Suspense",
+    "Slots for content projection",
+    "Component lifecycle hooks",
+    "Event handling with automatic cleanup"
+  ],
+  "publicApiSurface": [
+    "h(tag, props, children)",
+    "hFragment(children)",
+    "hString(string)",
+    "createApp(config)",
+    "Component",
+    "createComponent(component, props)",
+    "useState(initialState)",
+    "useEffect(effectFn, deps)",
+    "useRef(initialValue)",
+    "useMemo(computeFn, deps)",
+    "useCallback(callbackFn, deps)",
+    "createStore(initialState, actions)",
+    "connect(store, selector)",
+    "createActions(store, actions)",
+    "lazy(importFn)",
+    "Suspense",
+    "createSlot(name)",
+    "createSlotContent(name, content)"
+  ]
+}
